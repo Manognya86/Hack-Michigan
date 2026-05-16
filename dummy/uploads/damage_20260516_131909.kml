@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2">
+    <Document id="1">
+        <name>Simulated_Storm - DTE Pole Damage Assessment</name>
+        <description>Post-storm damage assessment for DTE Energy.
+Storm: Simulated_Storm
+Date: 2026-05-16 13:19
+Total poles: 8
+Est. repair cost: $12,794</description>
+        <Folder id="2">
+            <Style id="7">
+                <IconStyle id="8">
+                    <color>ff0000ff</color>
+                    <colorMode>normal</colorMode>
+                    <scale>1.2</scale>
+                    <heading>0</heading>
+                    <Icon id="9">
+                        <href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+                    </Icon>
+                </IconStyle>
+            </Style>
+            <Style id="12">
+                <IconStyle id="13">
+                    <color>ff0000ff</color>
+                    <colorMode>normal</colorMode>
+                    <scale>1.2</scale>
+                    <heading>0</heading>
+                    <Icon id="14">
+                        <href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+                    </Icon>
+                </IconStyle>
+            </Style>
+            <Style id="17">
+                <IconStyle id="18">
+                    <color>ff0000ff</color>
+                    <colorMode>normal</colorMode>
+                    <scale>1.2</scale>
+                    <heading>0</heading>
+                    <Icon id="19">
+                        <href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+                    </Icon>
+                </IconStyle>
+            </Style>
+            <Style id="22">
+                <IconStyle id="23">
+                    <color>ff0000ff</color>
+                    <colorMode>normal</colorMode>
+                    <scale>1.2</scale>
+                    <heading>0</heading>
+                    <Icon id="24">
+                        <href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+                    </Icon>
+                </IconStyle>
+            </Style>
+            <Style id="27">
+                <IconStyle id="28">
+                    <color>ff0000ff</color>
+                    <colorMode>normal</colorMode>
+                    <scale>1.2</scale>
+                    <heading>0</heading>
+                    <Icon id="29">
+                        <href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+                    </Icon>
+                </IconStyle>
+            </Style>
+            <Style id="32">
+                <IconStyle id="33">
+                    <color>ff0000ff</color>
+                    <colorMode>normal</colorMode>
+                    <scale>1.2</scale>
+                    <heading>0</heading>
+                    <Icon id="34">
+                        <href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+                    </Icon>
+                </IconStyle>
+            </Style>
+            <Style id="37">
+                <IconStyle id="38">
+                    <color>ff0000ff</color>
+                    <colorMode>normal</colorMode>
+                    <scale>1.2</scale>
+                    <heading>0</heading>
+                    <Icon id="39">
+                        <href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+                    </Icon>
+                </IconStyle>
+            </Style>
+            <Style id="42">
+                <IconStyle id="43">
+                    <color>ff0000ff</color>
+                    <colorMode>normal</colorMode>
+                    <scale>1.2</scale>
+                    <heading>0</heading>
+                    <Icon id="44">
+                        <href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+                    </Icon>
+                </IconStyle>
+            </Style>
+            <name>🔴 High Risk - Immediate</name>
+            <Placemark id="6">
+                <name>Pole POLE-1000</name>
+                <description>
+                    
+        
+<![CDATA[
+        <div style="font-family:Arial">
+        <b>Pole POLE-1000</b><br>
+        Damage Severity: 100<br>
+        Failure Probability: 100%<br>
+        Est. Cost: $1,599<br>
+        </div>
+        ]]>                    
+        
+                </description>
+                <styleUrl>#7</styleUrl>
+                <Point id="5">
+                    <coordinates>-83.08336120212739,42.35487515948922,0.0</coordinates>
+                </Point>
+            </Placemark>
+            <Placemark id="11">
+                <name>Pole POLE-1001</name>
+                <description>
+                    
+        
+<![CDATA[
+        <div style="font-family:Arial">
+        <b>Pole POLE-1001</b><br>
+        Damage Severity: 100<br>
+        Failure Probability: 100%<br>
+        Est. Cost: $1,599<br>
+        </div>
+        ]]>                    
+        
+                </description>
+                <styleUrl>#12</styleUrl>
+                <Point id="10">
+                    <coordinates>-83.06336120212738,42.35487515948922,0.0</coordinates>
+                </Point>
+            </Placemark>
+            <Placemark id="16">
+                <name>Pole POLE-1002</name>
+                <description>
+                    
+        
+<![CDATA[
+        <div style="font-family:Arial">
+        <b>Pole POLE-1002</b><br>
+        Damage Severity: 100<br>
+        Failure Probability: 100%<br>
+        Est. Cost: $1,599<br>
+        </div>
+        ]]>                    
+        
+                </description>
+                <styleUrl>#17</styleUrl>
+                <Point id="15">
+                    <coordinates>-83.08336120212739,42.374875159489214,0.0</coordinates>
+                </Point>
+            </Placemark>
+            <Placemark id="21">
+                <name>Pole POLE-1003</name>
+                <description>
+                    
+        
+<![CDATA[
+        <div style="font-family:Arial">
+        <b>Pole POLE-1003</b><br>
+        Damage Severity: 100<br>
+        Failure Probability: 100%<br>
+        Est. Cost: $1,599<br>
+        </div>
+        ]]>                    
+        
+                </description>
+                <styleUrl>#22</styleUrl>
+                <Point id="20">
+                    <coordinates>-83.06336120212738,42.374875159489214,0.0</coordinates>
+                </Point>
+            </Placemark>
+            <Placemark id="26">
+                <name>Pole POLE-1004</name>
+                <description>
+                    
+        
+<![CDATA[
+        <div style="font-family:Arial">
+        <b>Pole POLE-1004</b><br>
+        Damage Severity: 100<br>
+        Failure Probability: 100%<br>
+        Est. Cost: $1,595<br>
+        </div>
+        ]]>                    
+        
+                </description>
+                <styleUrl>#27</styleUrl>
+                <Point id="25">
+                    <coordinates>-83.07836120212738,42.359875159489214,0.0</coordinates>
+                </Point>
+            </Placemark>
+            <Placemark id="31">
+                <name>Pole POLE-1005</name>
+                <description>
+                    
+        
+<![CDATA[
+        <div style="font-family:Arial">
+        <b>Pole POLE-1005</b><br>
+        Damage Severity: 100<br>
+        Failure Probability: 100%<br>
+        Est. Cost: $1,599<br>
+        </div>
+        ]]>                    
+        
+                </description>
+                <styleUrl>#32</styleUrl>
+                <Point id="30">
+                    <coordinates>-83.06836120212739,42.359875159489214,0.0</coordinates>
+                </Point>
+            </Placemark>
+            <Placemark id="36">
+                <name>Pole POLE-1006</name>
+                <description>
+                    
+        
+<![CDATA[
+        <div style="font-family:Arial">
+        <b>Pole POLE-1006</b><br>
+        Damage Severity: 100<br>
+        Failure Probability: 100%<br>
+        Est. Cost: $1,599<br>
+        </div>
+        ]]>                    
+        
+                </description>
+                <styleUrl>#37</styleUrl>
+                <Point id="35">
+                    <coordinates>-83.07836120212738,42.36987515948922,0.0</coordinates>
+                </Point>
+            </Placemark>
+            <Placemark id="41">
+                <name>Pole POLE-1007</name>
+                <description>
+                    
+        
+<![CDATA[
+        <div style="font-family:Arial">
+        <b>Pole POLE-1007</b><br>
+        Damage Severity: 100<br>
+        Failure Probability: 100%<br>
+        Est. Cost: $1,608<br>
+        </div>
+        ]]>                    
+        
+                </description>
+                <styleUrl>#42</styleUrl>
+                <Point id="40">
+                    <coordinates>-83.06836120212739,42.36987515948922,0.0</coordinates>
+                </Point>
+            </Placemark>
+        </Folder>
+        <Folder id="3">
+            <name>🟠 Medium Risk - Schedule</name>
+        </Folder>
+        <Folder id="4">
+            <name>🟢 Low Risk - Monitor</name>
+        </Folder>
+    </Document>
+</kml>

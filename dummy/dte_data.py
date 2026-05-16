@@ -1,51 +1,114 @@
-# dte_data.py
 import math
+import random
 from datetime import datetime
+from data_sources import get_poles_from_osm
 
-# Synthetic poles in Metro Detroit (matching React component)
-MOCK_POLES = [
-    {"id": "DTE-7821", "lat": 42.3314, "lng": -83.0458, "district": "Southwest Detroit", "age": 34, "material": "Wood", "tilt": 14, "cracks": True, "rust": False, "vegetation": "high", "lastInspection": "2022-08-10", "circuit": "C-SW-04", "windExposure": "high", "floodZone": "AE", "soilType": "Clay"},
-    {"id": "DTE-4512", "lat": 42.3700, "lng": -83.1000, "district": "Dearborn North", "age": 12, "material": "Steel", "tilt": 2, "cracks": False, "rust": True, "vegetation": "low", "lastInspection": "2024-01-22", "circuit": "C-DN-11", "windExposure": "medium", "floodZone": "X", "soilType": "Loam"},
-    {"id": "DTE-9034", "lat": 42.3100, "lng": -83.0200, "district": "Downriver", "age": 47, "material": "Wood", "tilt": 19, "cracks": True, "rust": False, "vegetation": "medium", "lastInspection": "2021-03-15", "circuit": "C-DR-02", "windExposure": "high", "floodZone": "AE", "soilType": "Sandy"},
-    {"id": "DTE-3301", "lat": 42.4000, "lng": -83.0800, "district": "Livonia", "age": 8, "material": "Composite", "tilt": 1, "cracks": False, "rust": False, "vegetation": "low", "lastInspection": "2024-11-05", "circuit": "C-LV-07", "windExposure": "low", "floodZone": "X", "soilType": "Loam"},
-    {"id": "DTE-6678", "lat": 42.3500, "lng": -83.1500, "district": "Allen Park", "age": 29, "material": "Wood", "tilt": 8, "cracks": False, "rust": True, "vegetation": "medium", "lastInspection": "2023-04-30", "circuit": "C-AP-03", "windExposure": "medium", "floodZone": "B", "soilType": "Clay"},
-    {"id": "DTE-2290", "lat": 42.2800, "lng": -83.0700, "district": "Wyandotte", "age": 52, "material": "Wood", "tilt": 22, "cracks": True, "rust": True, "vegetation": "high", "lastInspection": "2020-06-18", "circuit": "C-WY-01", "windExposure": "high", "floodZone": "AE", "soilType": "Clay"},
-    {"id": "DTE-5544", "lat": 42.4200, "lng": -83.0000, "district": "Hamtramck", "age": 18, "material": "Steel", "tilt": 4, "cracks": False, "rust": False, "vegetation": "low", "lastInspection": "2024-07-14", "circuit": "C-HM-09", "windExposure": "low", "floodZone": "X", "soilType": "Loam"},
-    {"id": "DTE-8812", "lat": 42.3400, "lng": -83.1800, "district": "Inkster", "age": 41, "material": "Wood", "tilt": 11, "cracks": True, "rust": True, "vegetation": "high", "lastInspection": "2021-11-22", "circuit": "C-IK-05", "windExposure": "high", "floodZone": "AE", "soilType": "Clay"},
-]
+def get_real_poles(lat: float, lon: float, radius_km: float = 5.0) -> list:
+    """
+    Fetch real poles from OSM. If none found, return mock poles for the area.
+    """
+    poles = get_poles_from_osm(lat, lon, radius_km)
+    if poles and len(poles) > 0:
+        # Add risk scores to real poles
+        for pole in poles:
+            compute_pole_risk(pole)
+        return poles
+    else:
+        # Return mock poles based on location
+        return generate_mock_poles_for_location(lat, lon)
 
-def compute_risk_score(pole):
-    """Calculate risk score (0-100) based on DTE‑inspired formula."""
+def generate_mock_poles_for_location(lat: float, lon: float, count: int = 8) -> list:
+    """Generate realistic mock poles around the given location."""
+    mock_poles = []
+    # Base offsets to create a grid around the location
+    offsets = [
+        (-0.01, -0.01), (-0.01, 0.01), (0.01, -0.01), (0.01, 0.01),
+        (-0.005, -0.005), (-0.005, 0.005), (0.005, -0.005), (0.005, 0.005),
+        (0, -0.008), (0, 0.008), (-0.008, 0), (0.008, 0)
+    ]
+    materials = ['wood', 'steel', 'wood', 'composite', 'wood', 'steel']
+    districts = ['Downtown', 'North Side', 'South Side', 'East End', 'West End', 'Central']
+    
+    for i, (dlat, dlng) in enumerate(offsets[:count]):
+        pole_id = f"POLE-{1000 + i}"
+        pole = {
+            'id': pole_id,
+            'lat': lat + dlat,
+            'lng': lon + dlng,
+            'district': random.choice(districts),
+            'age': random.randint(5, 50),
+            'material': random.choice(materials),
+            'tilt': random.uniform(0, 20),
+            'cracks': random.choice([True, False]),
+            'rust': random.choice([True, False]),
+            'vegetation': random.choice(['low', 'medium', 'high']),
+            'lastInspection': (datetime.now().replace(year=datetime.now().year - random.randint(1, 5))).strftime('%Y-%m-%d'),
+            'circuit': f'C-{random.choice(["SW","DN","DR","LV","AP","WY","HM","IK"])}-{random.randint(1,20):02d}',
+            'windExposure': random.choice(['low', 'medium', 'high']),
+            'floodZone': random.choice(['X', 'AE', 'B', 'X500']),
+            'soilType': random.choice(['Clay', 'Loam', 'Sandy']),
+            'source': 'mock'
+        }
+        compute_pole_risk(pole)
+        mock_poles.append(pole)
+    return mock_poles
+
+def compute_pole_risk(pole):
+    """Calculate risk score (0-100) based on pole properties."""
     score = 0
-    score += min(pole["age"] * 1.2, 40)
-    score += pole["tilt"] * 1.8
-    if pole["cracks"]: score += 15
-    if pole["rust"]: score += 10
-    if pole["vegetation"] == "high": score += 12
-    elif pole["vegetation"] == "medium": score += 6
-    if pole["windExposure"] == "high": score += 10
-    elif pole["windExposure"] == "medium": score += 5
-    if pole["floodZone"] == "AE": score += 8
-    elif pole["floodZone"] == "B": score += 3
-    if pole["material"] == "Wood": score += 8
-    # years since inspection
-    last = datetime.strptime(pole["lastInspection"], "%Y-%m-%d")
-    years_since = (datetime.now() - last).days / 365.25
-    score += min(years_since * 3, 12)
+    age = pole.get('age', 20)
+    score += min(age * 1.2, 40)
+    tilt = pole.get('tilt', 0)
+    score += tilt * 1.8
+    if pole.get('cracks', False):
+        score += 15
+    if pole.get('rust', False):
+        score += 10
+    veg = pole.get('vegetation', 'medium')
+    if veg == 'high':
+        score += 12
+    elif veg == 'medium':
+        score += 6
+    wind_exp = pole.get('windExposure', 'medium')
+    if wind_exp == 'high':
+        score += 10
+    elif wind_exp == 'medium':
+        score += 5
+    flood_zone = pole.get('floodZone', 'X')
+    if flood_zone in ['AE', 'A', 'V']:
+        score += 8
+    elif flood_zone in ['B', 'X500']:
+        score += 3
+    material = pole.get('material', '').lower()
+    if material == 'wood':
+        score += 8
+    elif material == 'steel':
+        score += 4
+    last = pole.get('lastInspection')
+    if last:
+        try:
+            last_date = datetime.strptime(last, "%Y-%m-%d")
+            years_since = (datetime.now() - last_date).days / 365.25
+            score += min(years_since * 3, 12)
+        except:
+            pass
     raw_score = min(round(score), 100)
-    # additional derived values
     storm_fail_prob = min(raw_score / 100 * 0.85 + 0.05, 0.95)
     remaining_life = max(0.5, (100 - raw_score) / 10)
-    replace_cost = 8500 if pole["material"] == "Steel" else (11000 if pole["material"] == "Composite" else 6200)
+    if material == 'steel':
+        replace_cost = 8500
+    elif material == 'composite':
+        replace_cost = 11000
+    else:
+        replace_cost = 6200
     repair_cost = round(replace_cost * 0.35)
-    return {
-        "riskScore": raw_score,
-        "stormFailProb": round(storm_fail_prob, 2),
-        "remainingLife": round(remaining_life, 1),
-        "replaceCost": replace_cost,
-        "repairCost": repair_cost
-    }
+    pole['current_risk_score'] = raw_score
+    pole['risk_level'] = 'High' if raw_score > 70 else 'Medium' if raw_score > 40 else 'Low'
+    pole['storm_fail_prob'] = round(storm_fail_prob, 2)
+    pole['remaining_life'] = round(remaining_life, 1)
+    pole['replace_cost'] = replace_cost
+    pole['repair_cost'] = repair_cost
+    return pole
 
-# Pre‑compute for all poles
-for pole in MOCK_POLES:
-    pole.update(compute_risk_score(pole))
+# Keep MOCK_POLES for backward compatibility (will be overwritten by location-based ones)
+MOCK_POLES = generate_mock_poles_for_location(42.3314, -83.0458)
