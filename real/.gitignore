@@ -1,0 +1,22 @@
+# Secrets — NEVER commit these
+.env
+gee_credentials.json
+*.pkl
+*.db
+ 
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+env/
+ 
+# Uploads (large files)
+uploads/
+ 
+# VS Code
+.vscode/
+ 
+# OS
+.DS_Store
+Thumbs.db

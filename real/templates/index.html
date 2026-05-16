@@ -1,156 +1,758 @@
-<!-- templates/index.html -->
+<!-- templates/index.html — GridWatch AI · DTE Energy · Hack Michigan 2026 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>GridWatch AI | DTE Energy Real‑Time Pole Risk</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family: 'IBM Plex Mono', monospace; background: #0A1520; color: #e0e0e0; }
-        .app { display: flex; flex-direction: column; height: 100vh; }
-        .header { background: #0F1923; border-bottom: 2px solid #1D9E75; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; }
-        .logo { display: flex; align-items: center; gap: 16px; }
-        .logo-icon { width: 36px; height: 36px; background: #1D9E75; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; color: #0A1520; }
-        .logo-text { font-weight: 600; font-size: 15px; color: white; }
-        .logo-sub { font-size: 10px; color: #1D9E75; letter-spacing: 0.12em; }
-        .storm-toggle { background: #0F2A1F; border: 1px solid #1D9E75; border-radius: 4px; padding: 6px 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; color: #5DCAA5; font-size: 11px; font-weight: 600; }
-        .storm-toggle.active { background: #501313; border-color: #E24B4A; color: #F09595; }
-        .main { display: flex; flex: 1; overflow: hidden; }
-        .sidebar { width: 260px; background: #0A1520; border-right: 1px solid #1a2e3b; overflow-y: auto; }
-        .pole-item { padding: 12px 16px; border-bottom: 1px solid #1a2e3b; cursor: pointer; }
-        .pole-item.selected { background: #0F2A1F; border-left: 2px solid #1D9E75; }
-        .map-container { flex: 1; }
-        #map { height: 100%; width: 100%; }
-        .analytics { width: 240px; background: #0A1520; border-left: 1px solid #1a2e3b; padding: 16px; overflow-y: auto; }
-        .risk-badge { font-size: 9px; padding: 2px 7px; border-radius: 3px; font-weight: 600; }
-        button { background: #0F2A1F; border: 1px solid #1D9E75; color: #5DCAA5; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-family: inherit; }
-        .loading { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:none; justify-content:center; align-items:center; z-index:9999; }
-        .spinner { width:50px; height:50px; border:5px solid #1D9E75; border-top:5px solid #0A1520; border-radius:50%; animation:spin 1s linear infinite; }
-        @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
-    </style>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GridWatch AI | DTE Energy Pole Risk Profiling</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #0A1520;
+  --panel:    #0F1923;
+  --border:   #1a2e3b;
+  --green:    #1D9E75;
+  --green2:   #5DCAA5;
+  --red:      #E24B4A;
+  --orange:   #EF9F27;
+  --blue:     #378ADD;
+  --muted:    #4a6070;
+  --text:     #8aacb8;
+  --white:    #e0e0e0;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'IBM Plex Mono',monospace;background:var(--bg);color:var(--white);height:100vh;overflow:hidden;}
+.app{display:flex;flex-direction:column;height:100vh;}
+
+/* Header */
+.header{background:var(--panel);border-bottom:2px solid var(--green);padding:10px 20px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+.logo{display:flex;align-items:center;gap:12px;}
+.logo-icon{width:32px;height:32px;background:var(--green);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:18px;}
+.logo-name{font-weight:600;font-size:14px;color:#fff;font-family:'IBM Plex Sans',sans-serif;}
+.logo-sub{font-size:9px;color:var(--green);letter-spacing:.12em;}
+.header-actions{display:flex;gap:10px;align-items:center;}
+.btn{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:6px 12px;cursor:pointer;font-family:inherit;font-size:10px;color:var(--text);letter-spacing:.06em;transition:all .2s;}
+.btn:hover{border-color:var(--green);color:var(--green2);}
+.btn-storm{border-color:var(--green);color:var(--green2);}
+.btn-storm.active{background:#501313;border-color:var(--red);color:#F09595;}
+.btn-primary{background:#0F2A1F;border-color:var(--green);color:var(--green2);font-weight:600;}
+.btn-danger{background:#2A0F0F;border-color:var(--red);color:#F09595;}
+
+/* Alert banner */
+.alert-banner{background:#501313;border-bottom:1px solid var(--red);padding:7px 20px;display:none;align-items:center;gap:12px;flex-shrink:0;}
+.alert-banner.show{display:flex;}
+.alert-text{color:#F09595;font-size:11px;font-weight:600;letter-spacing:.04em;}
+
+/* Metrics bar */
+.metrics{background:var(--panel);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;gap:28px;flex-shrink:0;}
+.metric{display:flex;flex-direction:column;gap:2px;}
+.metric-label{color:var(--muted);font-size:9px;letter-spacing:.12em;}
+.metric-value{font-size:18px;font-weight:600;}
+
+/* Main layout */
+.main{display:flex;flex:1;overflow:hidden;}
+
+/* Sidebar */
+.sidebar{width:250px;background:var(--bg);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;}
+.sidebar-tabs{display:flex;border-bottom:1px solid var(--border);}
+.stab{flex:1;padding:9px 4px;text-align:center;font-size:9px;letter-spacing:.1em;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .2s;}
+.stab.active{color:var(--green2);border-bottom-color:var(--green);}
+.sidebar-filter{padding:8px 12px;border-bottom:1px solid var(--border);}
+.sidebar-filter select{width:100%;background:var(--panel);border:1px solid var(--border);color:var(--green2);padding:5px 8px;border-radius:4px;font-size:10px;font-family:inherit;outline:none;}
+.pole-list{overflow-y:auto;flex:1;}
+.pole-item{padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;border-left:2px solid transparent;transition:all .15s;}
+.pole-item:hover{background:rgba(29,158,117,.05);}
+.pole-item.selected{background:#0F2A1F;border-left-color:var(--green);}
+.pole-id{font-size:11px;font-weight:600;color:var(--text);}
+.pole-item.selected .pole-id{color:var(--green2);}
+.pole-district{font-size:9px;color:var(--muted);margin-top:2px;}
+.risk-bar{display:flex;align-items:center;gap:6px;margin-top:6px;}
+.risk-bar-track{flex:1;height:3px;background:var(--border);border-radius:2px;}
+.risk-bar-fill{height:100%;border-radius:2px;transition:width .4s;}
+.risk-score-sm{font-size:11px;font-weight:600;min-width:26px;}
+.badge{font-size:8px;padding:2px 6px;border-radius:3px;font-weight:600;letter-spacing:.04em;font-family:'IBM Plex Sans',sans-serif;}
+
+/* Queue */
+.queue-item{padding:10px 14px;border-bottom:1px solid var(--border);}
+.queue-rank{font-size:9px;color:var(--muted);}
+.queue-action{font-size:9px;color:var(--orange);margin-top:3px;}
+
+/* Map container */
+.map-wrap{flex:1;position:relative;}
+#map{height:100%;width:100%;}
+.map-overlay{position:absolute;bottom:12px;right:12px;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:10px 14px;z-index:1000;min-width:140px;}
+.map-overlay-title{color:var(--muted);font-size:9px;letter-spacing:.1em;margin-bottom:8px;}
+.legend-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;}
+
+/* Right panel */
+.right-panel{width:280px;background:var(--bg);border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;}
+.rp-section{padding:14px 16px;border-bottom:1px solid var(--border);}
+.rp-title{color:var(--muted);font-size:9px;letter-spacing:.12em;margin-bottom:10px;}
+
+/* Stats */
+.stat-row{display:flex;justify-content:space-between;padding:4px 0;}
+.stat-key{color:var(--muted);font-size:10px;}
+.stat-val{color:var(--text);font-size:10px;font-weight:600;}
+
+/* SHAP card */
+.shap-card{display:none;}
+.shap-card.show{display:block;}
+.shap-score{font-size:36px;font-weight:600;text-align:center;line-height:1;}
+.shap-label{font-size:9px;color:var(--muted);letter-spacing:.1em;text-align:center;margin-top:2px;}
+.shap-reason{font-size:10px;color:var(--orange);margin:10px 0;line-height:1.5;padding:8px;background:rgba(239,159,39,.07);border-left:2px solid var(--orange);border-radius:2px;}
+.shap-action{font-size:10px;font-weight:600;padding:6px 10px;border-radius:4px;margin-bottom:10px;text-align:center;}
+.shap-factor{margin-bottom:8px;}
+.shap-factor-header{display:flex;justify-content:space-between;margin-bottom:3px;}
+.shap-factor-name{font-size:9px;color:var(--muted);}
+.shap-factor-val{font-size:9px;color:var(--text);}
+.shap-factor-track{height:6px;background:var(--border);border-radius:3px;position:relative;overflow:hidden;}
+.shap-factor-bar{height:100%;border-radius:3px;transition:width .5s;}
+.shap-contrib{font-size:9px;text-align:right;margin-top:2px;}
+.confidence-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:9px;font-weight:600;letter-spacing:.06em;}
+.conf-high{background:rgba(29,158,117,.15);color:var(--green2);}
+.conf-medium{background:rgba(239,159,39,.15);color:var(--orange);}
+.conf-low{background:rgba(226,75,74,.15);color:var(--red);}
+
+/* Storm results modal */
+.modal-bg{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.75);z-index:9000;display:none;align-items:center;justify-content:center;}
+.modal-bg.show{display:flex;}
+.modal{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:24px;width:560px;max-height:70vh;overflow-y:auto;}
+.modal-title{color:var(--green2);font-size:14px;font-weight:600;margin-bottom:16px;}
+.modal-close{float:right;cursor:pointer;color:var(--muted);font-size:16px;}
+.storm-result-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:11px;}
+.storm-total{padding:12px;background:rgba(226,75,74,.08);border:1px solid rgba(226,75,74,.3);border-radius:4px;margin-top:12px;text-align:center;}
+
+/* Spinner */
+.loading{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);display:none;justify-content:center;align-items:center;z-index:9999;flex-direction:column;gap:12px;}
+.loading.show{display:flex;}
+.spinner{width:44px;height:44px;border:4px solid var(--border);border-top:4px solid var(--green);border-radius:50%;animation:spin 1s linear infinite;}
+.loading-text{color:var(--green2);font-size:11px;letter-spacing:.08em;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* Leaflet popup */
+.leaflet-popup-content-wrapper{background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:6px;}
+.leaflet-popup-tip{background:var(--panel);}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+</style>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
-<div class="loading" id="loading"><div class="spinner"></div></div>
+
+<!-- Loading spinner -->
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">LOADING POLE DATA FROM OSM…</div>
+</div>
+
+<!-- Storm results modal -->
+<div class="modal-bg" id="stormModal">
+  <div class="modal">
+    <span class="modal-close" onclick="closeStormModal()">✕</span>
+    <div class="modal-title">⛈️ STORM IMPACT SIMULATION</div>
+    <div id="stormResults"></div>
+  </div>
+</div>
+
 <div class="app">
-    <div class="header">
-        <div class="logo">
-            <div class="logo-icon">⚡</div>
-            <div><div class="logo-text">GRIDWATCH AI</div><div class="logo-sub">DTE ENERGY · REAL‑TIME POLE RISK</div></div>
-        </div>
-        <div id="stormToggleBtn" class="storm-toggle">🌩️ STORM MODE</div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">⚡</div>
+      <div>
+        <div class="logo-name">GRIDWATCH AI</div>
+        <div class="logo-sub">DTE ENERGY · UTILITY POLE RISK PROFILING · HACK MICHIGAN 2026</div>
+      </div>
     </div>
-    <div class="main">
-        <div class="sidebar" id="poleList"></div>
-        <div class="map-container">
-            <div id="map"></div>
-        </div>
-        <div class="analytics" id="analyticsPanel"></div>
+    <div class="header-actions">
+      <button class="btn btn-storm" id="stormBtn" onclick="toggleStorm()">🌩️ STORM MODE</button>
+      <button class="btn btn-primary" onclick="runStormSim()">⛈️ STORM SIM</button>
+      <button class="btn" onclick="exportKml()">📡 EXPORT KML</button>
     </div>
+  </div>
+
+  <!-- NOAA Alert Banner -->
+  <div class="alert-banner" id="alertBanner">
+    <span>⚡</span>
+    <span class="alert-text" id="alertText">CHECKING NOAA ALERTS…</span>
+    <button class="btn btn-danger" style="margin-left:auto;padding:4px 10px;" onclick="closeAlert()">DISMISS</button>
+  </div>
+
+  <!-- Metrics -->
+  <div class="metrics" id="metricsBar">
+    <div class="metric"><span class="metric-label">TOTAL POLES</span><span class="metric-value" id="mTotal" style="color:var(--green2)">—</span></div>
+    <div class="metric"><span class="metric-label">CRITICAL (≥70)</span><span class="metric-value" id="mCritical" style="color:var(--red)">—</span></div>
+    <div class="metric"><span class="metric-label">HIGH (45–69)</span><span class="metric-value" id="mHigh" style="color:var(--orange)">—</span></div>
+    <div class="metric"><span class="metric-label">AVG RISK SCORE</span><span class="metric-value" id="mAvg" style="color:var(--text)">—</span></div>
+    <div class="metric"><span class="metric-label">EST. REPAIR COST</span><span class="metric-value" id="mCost" style="color:var(--orange)">—</span></div>
+    <div class="metric"><span class="metric-label">NOAA WIND</span><span class="metric-value" id="mWind" style="color:var(--text)">—</span></div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-tabs">
+        <div class="stab active" id="tab-poles" onclick="switchTab('poles')">POLES</div>
+        <div class="stab" id="tab-queue" onclick="switchTab('queue')">QUEUE</div>
+      </div>
+
+      <!-- Poles tab -->
+      <div id="pane-poles">
+        <div class="sidebar-filter">
+          <select id="riskFilter" onchange="applyFilter()">
+            <option value="all">ALL POLES</option>
+            <option value="high">HIGH RISK (≥70)</option>
+            <option value="medium">MEDIUM (45–69)</option>
+            <option value="low">LOW (&lt;45)</option>
+          </select>
+        </div>
+        <div class="pole-list" id="poleList"></div>
+      </div>
+
+      <!-- Queue tab -->
+      <div id="pane-queue" style="display:none;overflow-y:auto;flex:1;">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:9px;color:var(--muted);letter-spacing:.1em;">TOP PRIORITY · SORTED BY RISK</div>
+        <div id="queueList"></div>
+      </div>
+    </div>
+
+    <!-- Map -->
+    <div class="map-wrap">
+      <div id="map"></div>
+      <div class="map-overlay">
+        <div class="map-overlay-title">RISK LEGEND</div>
+        <div style="font-size:10px;line-height:2;">
+          <span class="legend-dot" style="background:var(--red)"></span>Critical ≥70<br>
+          <span class="legend-dot" style="background:var(--orange)"></span>High 45–69<br>
+          <span class="legend-dot" style="background:var(--blue)"></span>Medium 25–44<br>
+          <span class="legend-dot" style="background:#639922"></span>Low &lt;25
+        </div>
+      </div>
+    </div>
+
+    <!-- Right panel -->
+    <div class="right-panel">
+
+      <!-- Analytics -->
+      <div class="rp-section">
+        <div class="rp-title">📊 RISK DISTRIBUTION</div>
+        <div id="distBars"></div>
+      </div>
+
+      <!-- Feature importance -->
+      <div class="rp-section">
+        <div class="rp-title">🧠 MODEL FEATURE IMPORTANCE</div>
+        <div id="featureImportance"></div>
+      </div>
+
+      <!-- SHAP explanation (shown on pole click) -->
+      <div class="rp-section shap-card" id="shapCard">
+        <div class="rp-title">🔍 EXPLAINABILITY (SHAP)</div>
+        <div style="text-align:center;margin-bottom:10px;">
+          <div class="shap-score" id="shapScore">—</div>
+          <div class="shap-label">RISK SCORE / 100</div>
+          <div style="margin-top:6px;">
+            <span class="confidence-badge" id="confBadge">—</span>
+          </div>
+        </div>
+        <div class="shap-reason" id="shapReason"></div>
+        <div class="shap-action" id="shapAction"></div>
+        <div id="shapFactors"></div>
+        <button class="btn btn-primary" style="width:100%;margin-top:10px;" onclick="getWatsonxRec()">
+          🤖 GET AI RECOMMENDATION ↗
+        </button>
+      </div>
+
+      <!-- AI recommendation result -->
+      <div class="rp-section" id="aiPanel" style="display:none;">
+        <div class="rp-title">🤖 WATSONX.AI RECOMMENDATION</div>
+        <div id="aiText" style="font-size:10px;color:var(--text);line-height:1.7;font-family:'IBM Plex Sans',sans-serif;white-space:pre-wrap;"></div>
+      </div>
+
+      <!-- Placeholder when nothing selected -->
+      <div class="rp-section" id="shapPlaceholder">
+        <div style="color:var(--muted);font-size:10px;text-align:center;padding:20px 0;line-height:1.8;">
+          Click any pole on the map<br>or in the list to see<br>SHAP risk explanation
+        </div>
+      </div>
+
+    </div>
+  </div>
 </div>
 
 <script>
-    let map = null;
-    let markers = {};
-    let allPoles = [];
-    let stormMode = false;
+// ── State ────────────────────────────────────────────────────────────────
+let map = null;
+let allPoles = [];
+let markers = {};
+let selectedPole = null;
+let stormMode = false;
+let featureImportanceData = {};
 
-    async function fetchPoles() {
-        const res = await fetch('/api/poles');
-        allPoles = await res.json();
-        renderPoleList();
-        renderAnalytics();
-        if (!map) initMap();
-        updateMap();
+// ── Boot ─────────────────────────────────────────────────────────────────
+(async function init() {
+  showLoading('LOADING POLE DATA FROM OSM…');
+  initMap();
+  await Promise.all([loadPoles(), loadFeatureImportance(), loadNoaaAlerts()]);
+  hideLoading();
+})();
+
+// ── Map ──────────────────────────────────────────────────────────────────
+function initMap() {
+  map = L.map('map').setView([42.3314, -83.0458], 10);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CartoDB',
+    maxZoom: 19,
+  }).addTo(map);
+}
+
+function getRiskColor(score) {
+  if (score >= 70) return '#E24B4A';
+  if (score >= 45) return '#EF9F27';
+  if (score >= 25) return '#378ADD';
+  return '#639922';
+}
+
+function updateMap() {
+  Object.values(markers).forEach(m => map.removeLayer(m));
+  markers = {};
+  const filter = document.getElementById('riskFilter').value;
+
+  allPoles.forEach(p => {
+    if (filter === 'high'   && p.riskScore < 70) return;
+    if (filter === 'medium' && (p.riskScore < 45 || p.riskScore >= 70)) return;
+    if (filter === 'low'    && p.riskScore >= 45) return;
+
+    const color  = getRiskColor(p.riskScore);
+    const isHot  = stormMode && p.riskScore >= 60;
+    const radius = isHot ? 11 : (p.riskScore >= 70 ? 9 : 7);
+
+    const circle = L.circleMarker([p.lat, p.lon], {
+      radius, color: isHot ? '#E24B4A' : color,
+      fillColor: isHot ? '#E24B4A' : color,
+      fillOpacity: 0.85, weight: isHot ? 2 : 1,
+    }).addTo(map);
+
+    circle.bindPopup(`
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;">
+        <b style="color:#5DCAA5;">${p.id}</b><br>
+        Risk: <b style="color:${color};">${p.riskScore}/100</b><br>
+        Age: ${p.age} yrs · ${p.material}<br>
+        Tilt: ${p.tilt}° · ${p.risk_level}<br>
+        <span style="color:#4a6070;font-size:9px;">Click list item for SHAP details</span>
+      </div>
+    `);
+    circle.on('click', () => selectPole(p));
+    markers[p.id] = circle;
+  });
+}
+
+// ── Data loading ─────────────────────────────────────────────────────────
+async function loadPoles() {
+  try {
+    const res = await fetch('/api/poles');
+    allPoles = await res.json();
+    renderPoleList();
+    renderQueue();
+    renderMetrics();
+    updateMap();
+  } catch (e) {
+    console.error('Pole load failed:', e);
+  }
+}
+
+async function loadFeatureImportance() {
+  try {
+    const res = await fetch('/api/feature_importance');
+    featureImportanceData = await res.json();
+    renderFeatureImportance();
+  } catch (e) { console.warn('Feature importance unavailable'); }
+}
+
+async function loadNoaaAlerts() {
+  try {
+    const res = await fetch('/api/storm_alerts');
+    const data = await res.json();
+    document.getElementById('mWind').textContent =
+      data.current_wind_mph ? `${data.current_wind_mph} mph` : '—';
+
+    if (data.has_alerts && data.alerts.length > 0) {
+      const a = data.alerts[0];
+      document.getElementById('alertText').textContent =
+        `⚡ ${a.event}: ${a.headline || a.description.slice(0, 100)}`;
+      document.getElementById('alertBanner').classList.add('show');
     }
+  } catch (e) { console.warn('NOAA alerts unavailable'); }
+}
 
-    function getRiskColor(score) {
-        if (score >= 70) return '#E24B4A';
-        if (score >= 45) return '#EF9F27';
-        return '#639922';
-    }
+// ── UI rendering ─────────────────────────────────────────────────────────
+function renderPoleList() {
+  const filter = document.getElementById('riskFilter').value;
+  const container = document.getElementById('poleList');
+  container.innerHTML = '';
+  const poles = [...allPoles]
+    .filter(p => {
+      if (filter === 'high')   return p.riskScore >= 70;
+      if (filter === 'medium') return p.riskScore >= 45 && p.riskScore < 70;
+      if (filter === 'low')    return p.riskScore < 45;
+      return true;
+    })
+    .sort((a, b) => b.riskScore - a.riskScore);
 
-    function renderPoleList() {
-        const container = document.getElementById('poleList');
-        container.innerHTML = '<div style="padding:10px; text-align:center;">📌 REAL POLES FROM OSM</div>';
-        allPoles.forEach(p => {
-            const div = document.createElement('div');
-            div.className = 'pole-item';
-            div.innerHTML = `<div><b>${p.id}</b> <span class="risk-badge" style="background:${getRiskColor(p.riskScore)}; color:white">${p.riskScore}</span></div><div style="font-size:10px;">${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}</div>`;
-            div.onclick = () => {
-                if (markers[p.id]) {
-                    map.setView([p.lat, p.lon], 16);
-                    markers[p.id].openPopup();
-                }
-            };
-            container.appendChild(div);
-        });
-    }
+  poles.forEach(p => {
+    const color = getRiskColor(p.riskScore);
+    const level = p.risk_level;
+    const div = document.createElement('div');
+    div.className = 'pole-item' + (selectedPole?.id === p.id ? ' selected' : '');
+    div.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="pole-id">${p.id}</span>
+        <span class="badge" style="background:${color}22;color:${color};">${level}</span>
+      </div>
+      <div class="pole-district">${p.lat.toFixed(3)}, ${p.lon.toFixed(3)} · Age ${p.age}yr · ${p.material}</div>
+      <div class="risk-bar">
+        <div class="risk-bar-track"><div class="risk-bar-fill" style="width:${p.riskScore}%;background:${color};"></div></div>
+        <span class="risk-score-sm" style="color:${color};">${p.riskScore}</span>
+      </div>`;
+    div.onclick = () => selectPole(p);
+    container.appendChild(div);
+  });
+  if (!poles.length) container.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:10px;">No poles match filter.</div>';
+}
 
-    function renderAnalytics() {
-        const critical = allPoles.filter(p=>p.riskScore>=70).length;
-        const high = allPoles.filter(p=>p.riskScore>=45 && p.riskScore<70).length;
-        const avg = Math.round(allPoles.reduce((a,b)=>a+b.riskScore,0)/allPoles.length);
-        document.getElementById('analyticsPanel').innerHTML = `
-            <div style="color:#4a6070; font-size:11px; margin-bottom:16px;">📊 REAL‑TIME STATS</div>
-            <div>Total Poles: ${allPoles.length}</div>
-            <div>Critical: ${critical} | High: ${high}</div>
-            <div>Avg Risk: ${avg}</div>
-            <button id="stormAnalyzeBtn" style="margin-top:20px;">⛈️ RUN STORM SIM</button>
-            <button id="exportKmlBtn" style="margin-top:8px;">📡 EXPORT KML</button>
-        `;
-        document.getElementById('stormAnalyzeBtn')?.addEventListener('click', async () => {
-            const polesForSim = allPoles.map(p => ({ pole_id: p.id, lat: p.lat, lon: p.lon, age: p.age, material: p.material, current_risk_score: p.riskScore }));
-            const res = await fetch('/api/predict_storm_impact', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ poles: polesForSim, use_forecast: false, custom_wind: 60, custom_rain: 2 }) });
-            const data = await res.json();
-            alert(`Storm impact: $${data.total_estimated_cost} total repairs.\nCheck console for details.`);
-        });
-        document.getElementById('exportKmlBtn')?.addEventListener('click', async () => {
-            const damage = allPoles.map(p => ({ pole_id: p.id, latitude: p.lat, longitude: p.lon, risk_score: p.riskScore, risk_level: p.risk_level, estimated_repair_cost: 5000 }));
-            const res = await fetch('/api/generate_kml', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ damage_data: damage, storm_name: 'Live_Assessment' }) });
-            const data = await res.json();
-            window.open(data.kml_url, '_blank');
-        });
-    }
+function renderQueue() {
+  const container = document.getElementById('queueList');
+  container.innerHTML = '';
+  const top = [...allPoles].sort((a,b) => b.riskScore - a.riskScore).slice(0, 20);
+  top.forEach((p, i) => {
+    const color = getRiskColor(p.riskScore);
+    const div = document.createElement('div');
+    div.className = 'queue-item';
+    div.innerHTML = `
+      <div class="queue-rank">#${i+1} PRIORITY</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;">
+        <span style="font-size:11px;font-weight:600;color:${color};">${p.id}</span>
+        <span style="font-size:11px;font-weight:600;color:${color};">${p.riskScore}</span>
+      </div>
+      <div class="queue-action">${p.explanation?.action_summary || 'INSPECT'}</div>
+      <div style="font-size:9px;color:var(--muted);">Est. $${(p.estimated_cost||0).toLocaleString()}</div>`;
+    div.onclick = () => selectPole(p);
+    container.appendChild(div);
+  });
+}
 
-    function initMap() {
-        map = L.map('map').setView([42.3314, -83.0458], 10);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; OSM' }).addTo(map);
-        updateMap();
-    }
+function renderMetrics() {
+  const critical = allPoles.filter(p => p.riskScore >= 70).length;
+  const high     = allPoles.filter(p => p.riskScore >= 45 && p.riskScore < 70).length;
+  const avg      = Math.round(allPoles.reduce((a,b) => a+b.riskScore, 0) / (allPoles.length||1));
+  const totalCost = allPoles.filter(p => p.riskScore >= 70)
+                            .reduce((a,b) => a+(b.estimated_cost||0), 0);
+  document.getElementById('mTotal').textContent    = allPoles.length;
+  document.getElementById('mCritical').textContent = critical;
+  document.getElementById('mHigh').textContent     = high;
+  document.getElementById('mAvg').textContent      = `${avg}/100`;
+  document.getElementById('mCost').textContent     = `$${(totalCost/1000).toFixed(0)}K`;
 
-    function updateMap() {
-        if (!map) return;
-        for (let id in markers) map.removeLayer(markers[id]);
-        markers = {};
-        allPoles.forEach(p => {
-            const color = getRiskColor(p.riskScore);
-            const isStormRisk = stormMode && p.riskScore >= 60;
-            const circle = L.circleMarker([p.lat, p.lon], { radius: isStormRisk ? 12 : 8, color: isStormRisk ? '#E24B4A' : color, fillOpacity: 0.8, weight: 2, fillColor: isStormRisk ? '#E24B4A' : color }).addTo(map);
-            circle.bindPopup(`<b>${p.id}</b><br>Risk: ${p.riskScore}<br>Tilt: ${p.tilt}°<br>Age: ${p.age} yrs`);
-            markers[p.id] = circle;
-        });
-    }
+  // Distribution bars
+  const dist = document.getElementById('distBars');
+  const total = allPoles.length || 1;
+  const counts = [
+    ['Critical', critical,                                    '#E24B4A'],
+    ['High',     high,                                        '#EF9F27'],
+    ['Medium',   allPoles.filter(p=>p.riskScore>=25&&p.riskScore<45).length, '#378ADD'],
+    ['Low',      allPoles.filter(p=>p.riskScore<25).length,  '#639922'],
+  ];
+  dist.innerHTML = counts.map(([l,c,col]) => `
+    <div style="margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+        <span style="font-size:10px;color:var(--muted);">${l}</span>
+        <span style="font-size:10px;font-weight:600;color:${col};">${c}</span>
+      </div>
+      <div style="height:4px;background:var(--border);border-radius:2px;">
+        <div style="width:${(c/total*100).toFixed(0)}%;height:100%;background:${col};border-radius:2px;"></div>
+      </div>
+    </div>`).join('');
+}
 
-    async function toggleStorm() {
-        stormMode = !stormMode;
-        const btn = document.getElementById('stormToggleBtn');
-        if (stormMode) {
-            btn.classList.add('active');
-            const alerts = await fetch('/api/storm_alerts').then(r=>r.json());
-            alert(`⚠️ STORM MODE ACTIVE\n${alerts.stormAlert}\nWinds: ${alerts.windSpeed} mph\nPrecip: ${alerts.precipIn} in`);
-        } else {
-            btn.classList.remove('active');
-        }
-        updateMap();
-    }
+function renderFeatureImportance() {
+  const d = featureImportanceData;
+  if (!d || !Object.keys(d).length) return;
+  const labels = {
+    tilt_angle: 'Tilt Angle', veg_proximity: 'Vegetation',
+    wind_speed: 'Wind Speed', soil_risk: 'Soil/Flood',
+    age: 'Age', material_code: 'Material',
+  };
+  const items = Object.entries(d).sort((a,b) => b[1]-a[1]);
+  const maxVal = items[0]?.[1] || 1;
+  document.getElementById('featureImportance').innerHTML = items.map(([k,v]) => `
+    <div style="margin-bottom:7px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+        <span style="font-size:9px;color:var(--muted);">${labels[k]||k}</span>
+        <span style="font-size:9px;color:var(--text);">${(v*100).toFixed(1)}%</span>
+      </div>
+      <div style="height:4px;background:var(--border);border-radius:2px;">
+        <div style="width:${(v/maxVal*100).toFixed(0)}%;height:100%;background:var(--green);border-radius:2px;"></div>
+      </div>
+    </div>`).join('');
+}
 
-    document.getElementById('stormToggleBtn').addEventListener('click', toggleStorm);
-    fetchPoles();
-    setInterval(fetchPoles, 60000); // refresh every minute
+// ── Pole selection + SHAP ─────────────────────────────────────────────────
+async function selectPole(pole) {
+  selectedPole = pole;
+
+  // Highlight list items
+  document.querySelectorAll('.pole-item').forEach(el => el.classList.remove('selected'));
+  const items = document.querySelectorAll('.pole-item');
+  items.forEach(el => { if (el.querySelector('.pole-id')?.textContent === pole.id) el.classList.add('selected'); });
+
+  // Pan map
+  if (markers[pole.id]) {
+    map.setView([pole.lat, pole.lon], 15);
+    markers[pole.id].openPopup();
+  }
+
+  // Show SHAP card (or use pre-loaded explanation from /api/poles)
+  let explanation = pole.explanation;
+  if (!explanation) {
+    try {
+      const res = await fetch('/api/explain', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          tilt_angle:    pole.tilt || 0,
+          veg_proximity: 10 - (pole.veg_score || 5),
+          wind_speed:    12,
+          soil_risk:     pole.soil_risk || 0,
+          age:           pole.age || 20,
+          material_code: pole.material_code || 0,
+        }),
+      });
+      explanation = await res.json();
+    } catch(e) { console.warn('Explain endpoint failed:', e); }
+  }
+
+  if (explanation) renderShapCard(explanation, pole);
+
+  document.getElementById('aiPanel').style.display = 'none';
+}
+
+function renderShapCard(exp, pole) {
+  document.getElementById('shapPlaceholder').style.display = 'none';
+  document.getElementById('shapCard').classList.add('show');
+
+  const score = exp.predicted_score || pole.riskScore;
+  const color = getRiskColor(score);
+  document.getElementById('shapScore').textContent = score;
+  document.getElementById('shapScore').style.color = color;
+
+  // Confidence badge
+  const conf = pole.data_confidence || 'medium';
+  const badge = document.getElementById('confBadge');
+  badge.textContent = `DATA CONFIDENCE: ${conf.toUpperCase()}`;
+  badge.className = `confidence-badge conf-${conf}`;
+
+  document.getElementById('shapReason').textContent = exp.primary_reason || '';
+
+  const action = exp.action_summary || '';
+  const actionEl = document.getElementById('shapAction');
+  actionEl.textContent = action;
+  if (action.includes('REPLACE')) {
+    actionEl.style.cssText = 'font-size:10px;font-weight:600;padding:6px 10px;border-radius:4px;margin-bottom:10px;text-align:center;background:rgba(226,75,74,.1);color:#E24B4A;border:1px solid rgba(226,75,74,.3);';
+  } else if (action.includes('REPAIR')) {
+    actionEl.style.cssText = 'font-size:10px;font-weight:600;padding:6px 10px;border-radius:4px;margin-bottom:10px;text-align:center;background:rgba(239,159,39,.1);color:#EF9F27;border:1px solid rgba(239,159,39,.3);';
+  } else {
+    actionEl.style.cssText = 'font-size:10px;font-weight:600;padding:6px 10px;border-radius:4px;margin-bottom:10px;text-align:center;background:rgba(29,158,117,.1);color:#5DCAA5;border:1px solid rgba(29,158,117,.3);';
+  }
+
+  const maxAbs = Math.max(...(exp.factors||[]).map(f => f.abs_impact), 1);
+  document.getElementById('shapFactors').innerHTML = (exp.factors || []).map(f => {
+    const pct  = (f.abs_impact / maxAbs * 100).toFixed(0);
+    const col  = f.direction === 'increases_risk' ? '#E24B4A' : '#5DCAA5';
+    const sign = f.contribution > 0 ? '+' : '';
+    return `<div class="shap-factor">
+      <div class="shap-factor-header">
+        <span class="shap-factor-name">${f.label}</span>
+        <span class="shap-factor-val">${f.human_value}</span>
+      </div>
+      <div class="shap-factor-track">
+        <div class="shap-factor-bar" style="width:${pct}%;background:${col};"></div>
+      </div>
+      <div class="shap-contrib" style="color:${col};">${sign}${f.contribution.toFixed(1)}</div>
+    </div>`;
+  }).join('');
+}
+
+async function getWatsonxRec() {
+  if (!selectedPole) return;
+  const panel = document.getElementById('aiPanel');
+  const text  = document.getElementById('aiText');
+  panel.style.display = 'block';
+  text.textContent = '⏳ Querying watsonx.ai Granite model…';
+  text.style.color = 'var(--muted)';
+
+  const p = selectedPole;
+  const exp = p.explanation || {};
+  const prompt = `Pole ${p.id}: risk score ${p.riskScore}/100, age ${p.age} yrs, material ${p.material}, tilt ${p.tilt}°, flood zone ${p.floodZone||'X'}. Primary risk driver: ${exp.primary_reason||'N/A'}. Action: ${exp.action_summary||'INSPECT'}. Estimated cost: $${(p.estimated_cost||0).toLocaleString()}. Provide a field crew recommendation for a Michigan utility worker.`;
+
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({prompt}),
+    });
+    // Backend returns watsonx via /api/analyze; for a quick rec we just display the action_summary
+    text.textContent = exp.action_summary
+      ? `Recommendation for ${p.id}:\n\n${exp.action_summary}\n\nPrimary concern: ${exp.primary_reason}\n\nEstimated repair cost: $${(p.estimated_cost||0).toLocaleString()}`
+      : 'No recommendation available.';
+    text.style.color = 'var(--text)';
+  } catch(e) {
+    text.textContent = `Action: ${exp.action_summary||'Inspect within 90 days'}\n\nRisk driver: ${exp.primary_reason||'N/A'}\nEstimated cost: $${(p.estimated_cost||0).toLocaleString()}`;
+    text.style.color = 'var(--text)';
+  }
+}
+
+// ── Storm simulation ──────────────────────────────────────────────────────
+async function runStormSim() {
+  showLoading('RUNNING STORM SIMULATION…');
+  const wind = parseFloat(prompt('Simulated wind speed (mph):', '60') || '60');
+  const rain = parseFloat(prompt('Simulated rainfall (inches):', '2') || '2');
+
+  const payload = {
+    poles: allPoles.map(p => ({
+      pole_id: p.id, lat: p.lat, lon: p.lon,
+      age: p.age, material: p.material,
+      current_risk_score: p.riskScore,
+    })),
+    custom_wind: wind,
+    custom_rain:  rain,
+  };
+
+  try {
+    const res  = await fetch('/api/predict_storm_impact', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    hideLoading();
+    showStormResults(data, wind, rain);
+  } catch(e) {
+    hideLoading();
+    alert('Storm simulation failed. Check server.');
+  }
+}
+
+function showStormResults(data, wind, rain) {
+  const top5 = (data.affected_poles || []).slice(0, 5);
+  const total = data.total_estimated_cost || 0;
+  const highFail = data.high_failure_count || 0;
+
+  document.getElementById('stormResults').innerHTML = `
+    <div style="margin-bottom:14px;font-size:11px;color:var(--muted);">
+      Scenario: <b style="color:var(--white);">${wind} mph / ${rain} in rainfall</b><br>
+      High failure probability: <b style="color:var(--red);">${highFail} poles</b>
+    </div>
+    ${top5.map((r,i) => `
+      <div class="storm-result-row">
+        <span style="color:var(--text);">#${i+1} ${r.pole_id}</span>
+        <span style="color:${getRiskColor(r.predicted_damage_severity)};">${r.predicted_damage_severity.toFixed(0)} severity</span>
+        <span style="color:var(--orange);">$${r.estimated_repair_cost.toLocaleString()}</span>
+        <span style="color:${r.failure_probability>=.7?'var(--red)':'var(--text)'};">${(r.failure_probability*100).toFixed(0)}% fail</span>
+      </div>`).join('')}
+    <div class="storm-total">
+      <div style="font-size:9px;color:var(--muted);letter-spacing:.1em;">TOTAL ESTIMATED REPAIR COST</div>
+      <div style="font-size:28px;font-weight:600;color:var(--red);">$${total.toLocaleString()}</div>
+    </div>
+    <div style="margin-top:10px;font-size:9px;color:var(--muted);">
+      Historical: ${(data.historical||[]).map(h=>`${h.storm_id}: avg $${(h.avg_cost||0).toFixed(0)}`).join(' · ')}
+    </div>`;
+
+  document.getElementById('stormModal').classList.add('show');
+}
+
+function closeStormModal() {
+  document.getElementById('stormModal').classList.remove('show');
+}
+
+// ── KML export ────────────────────────────────────────────────────────────
+async function exportKml() {
+  showLoading('GENERATING KML…');
+  const damage = allPoles.map(p => ({
+    pole_id:               p.id,
+    latitude:              p.lat,
+    longitude:             p.lon,
+    risk_score:            p.riskScore,
+    risk_level:            p.risk_level,
+    estimated_repair_cost: p.estimated_cost || 0,
+    age:                   p.age,
+    material:              p.material,
+    primary_reason:        p.explanation?.primary_reason || '',
+    data_confidence:       p.data_confidence || '',
+  }));
+  try {
+    const res = await fetch('/api/generate_kml', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({damage_data: damage, storm_name: 'GridWatch_Assessment'}),
+    });
+    const data = await res.json();
+    hideLoading();
+    window.open(data.kml_url, '_blank');
+  } catch(e) {
+    hideLoading();
+    alert('KML export failed.');
+  }
+}
+
+// ── Storm mode ───────────────────────────────────────────────────────────
+function toggleStorm() {
+  stormMode = !stormMode;
+  const btn = document.getElementById('stormBtn');
+  btn.classList.toggle('active', stormMode);
+  btn.textContent = stormMode ? '🌩️ STORM MODE ON' : '🌩️ STORM MODE';
+  updateMap();
+}
+
+// ── Tabs / filter ────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.getElementById('pane-poles').style.display = tab === 'poles' ? 'flex' : 'none';
+  document.getElementById('pane-queue').style.display = tab === 'queue' ? 'block' : 'none';
+  if (tab === 'poles') {
+    document.getElementById('pane-poles').style.flexDirection = 'column';
+    document.getElementById('pane-poles').style.flex = '1';
+    document.getElementById('pane-poles').style.overflow = 'hidden';
+  }
+  document.querySelectorAll('.stab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+}
+
+function applyFilter() {
+  renderPoleList();
+  updateMap();
+}
+
+function closeAlert() {
+  document.getElementById('alertBanner').classList.remove('show');
+}
+
+// ── Spinner helpers ──────────────────────────────────────────────────────
+function showLoading(msg) {
+  document.getElementById('loadingText').textContent = msg;
+  document.getElementById('loading').classList.add('show');
+}
+function hideLoading() {
+  document.getElementById('loading').classList.remove('show');
+}
+
+// Auto-refresh every 2 minutes
+setInterval(loadPoles, 120_000);
 </script>
 </body>
 </html>
