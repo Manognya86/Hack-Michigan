@@ -1,377 +1,156 @@
+<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>DTE Pole Risk Monitor | Real-Time AI Maintenance</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>GridWatch AI | DTE Energy Real‑Time Pole Risk</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; height: 100vh; overflow: hidden; }
-        .app-container { display: flex; height: 100vh; }
-        .sidebar { width: 380px; background: white; box-shadow: 2px 0 12px rgba(0,0,0,0.1); z-index: 10; display: flex; flex-direction: column; overflow-y: auto; }
-        .map-container { flex: 1; position: relative; }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family: 'IBM Plex Mono', monospace; background: #0A1520; color: #e0e0e0; }
+        .app { display: flex; flex-direction: column; height: 100vh; }
+        .header { background: #0F1923; border-bottom: 2px solid #1D9E75; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { display: flex; align-items: center; gap: 16px; }
+        .logo-icon { width: 36px; height: 36px; background: #1D9E75; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; color: #0A1520; }
+        .logo-text { font-weight: 600; font-size: 15px; color: white; }
+        .logo-sub { font-size: 10px; color: #1D9E75; letter-spacing: 0.12em; }
+        .storm-toggle { background: #0F2A1F; border: 1px solid #1D9E75; border-radius: 4px; padding: 6px 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; color: #5DCAA5; font-size: 11px; font-weight: 600; }
+        .storm-toggle.active { background: #501313; border-color: #E24B4A; color: #F09595; }
+        .main { display: flex; flex: 1; overflow: hidden; }
+        .sidebar { width: 260px; background: #0A1520; border-right: 1px solid #1a2e3b; overflow-y: auto; }
+        .pole-item { padding: 12px 16px; border-bottom: 1px solid #1a2e3b; cursor: pointer; }
+        .pole-item.selected { background: #0F2A1F; border-left: 2px solid #1D9E75; }
+        .map-container { flex: 1; }
         #map { height: 100%; width: 100%; }
-        .header { background: #0b3b5f; color: white; padding: 1rem; text-align: center; }
-        .header h1 { font-size: 1.4rem; }
-        .header p { font-size: 0.8rem; opacity: 0.8; }
-        .live-badge { background: #e74c3c; border-radius: 20px; padding: 2px 8px; font-size: 0.7rem; display: inline-block; margin-left: 8px; }
-        .card { background: #f9f9f9; margin: 1rem; padding: 1rem; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
-        .card h3 { margin-bottom: 0.5rem; font-size: 1rem; color: #2c3e50; border-left: 4px solid #0b3b5f; padding-left: 10px; }
-        .weather-info { display: flex; justify-content: space-between; font-size: 0.9rem; }
-        .alert-badge { background: #e67e22; color: white; border-radius: 20px; padding: 4px 12px; font-weight: bold; display: inline-block; }
-        .risk-high { background: #e74c3c; }
-        .risk-medium { background: #f39c12; }
-        .risk-low { background: #2ecc71; }
-        .pole-list { max-height: 300px; overflow-y: auto; }
-        .pole-item { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #ddd; cursor: pointer; color: #333; }
-        .pole-item:hover { background: #ecf0f1; }
-        .upload-area { border: 2px dashed #bdc3c7; border-radius: 12px; padding: 1rem; text-align: center; cursor: pointer; transition: background 0.2s; color: #555; }
-        .upload-area:hover { background: #ecf0f1; }
-        button { background: #0b3b5f; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: bold; margin-top: 8px; width: 100%; }
-        button:hover { background: #1c5a7f; }
-        .btn-secondary { background: #2c3e50; }
-        .btn-secondary:hover { background: #3e5a6f; }
-        input, select { width: 100%; padding: 8px; margin: 6px 0; border: 1px solid #ccc; border-radius: 8px; background: white; color: #333; }
-        .storm-sim { background: #2c3e50; color: white; }
-        .storm-sim label { color: #ecf0f1; font-weight: 500; }
-        .storm-sim span { color: #f1c40f; font-weight: bold; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 12px; margin-left: 5px; }
-        /* Result box: dark text on light background, clearly visible */
-        .result { background: #ffffff; color: #2c3e50; font-size: 0.9rem; padding: 12px; border-radius: 8px; margin-top: 12px; border-left: 4px solid #0b3b5f; box-shadow: 0 1px 3px rgba(0,0,0,0.1); line-height: 1.4; }
-        .result b { color: #0b3b5f; }
-        .result button { background: #27ae60; margin-top: 8px; width: auto; padding: 6px 12px; font-size: 0.8rem; }
-        .result button:hover { background: #2ecc71; }
-        footer { text-align: center; font-size: 0.7rem; padding: 1rem; color: #7f8c8d; }
-        .location-status { font-size: 0.75rem; margin-top: 5px; color: #666; }
-        .mock-warning { background: #fff3cd; color: #856404; padding: 8px; border-radius: 8px; margin-bottom: 8px; font-size: 0.75rem; border-left: 3px solid #ffc107; }
-        @media (max-width: 768px) { .sidebar { width: 100%; position: absolute; z-index: 20; height: 50%; bottom: 0; top: auto; } .map-container { height: 50%; } }
+        .analytics { width: 240px; background: #0A1520; border-left: 1px solid #1a2e3b; padding: 16px; overflow-y: auto; }
+        .risk-badge { font-size: 9px; padding: 2px 7px; border-radius: 3px; font-weight: 600; }
+        button { background: #0F2A1F; border: 1px solid #1D9E75; color: #5DCAA5; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-family: inherit; }
+        .loading { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:none; justify-content:center; align-items:center; z-index:9999; }
+        .spinner { width:50px; height:50px; border:5px solid #1D9E75; border-top:5px solid #0A1520; border-radius:50%; animation:spin 1s linear infinite; }
+        @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
     </style>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
-<div class="app-container">
-    <div class="sidebar">
-        <div class="header">
-            <h1>⚡ DTE Pole Risk Monitor <span class="live-badge">REAL POLES</span></h1>
-            <p>Live OSM Poles + Weather + AI</p>
+<div class="loading" id="loading"><div class="spinner"></div></div>
+<div class="app">
+    <div class="header">
+        <div class="logo">
+            <div class="logo-icon">⚡</div>
+            <div><div class="logo-text">GRIDWATCH AI</div><div class="logo-sub">DTE ENERGY · REAL‑TIME POLE RISK</div></div>
         </div>
-
-        <div class="card">
-            <h3>📍 My Location & Weather</h3>
-            <button id="getLocationBtn" class="btn-secondary">📍 Use My Current Location</button>
-            <div id="locationDisplay" class="location-status">No location yet. Click above.</div>
-            <div id="weatherWidget" style="margin-top: 10px;">Waiting for location...</div>
-            <div id="stormAlert" style="margin-top: 8px;"></div>
-        </div>
-
-        <div class="card">
-            <h3>📸 Pole Inspection (Upload Image)</h3>
-            <div class="upload-area" id="uploadArea">
-                <input type="file" id="imageInput" accept="image/jpeg,image/png" style="display:none">
-                <p>📤 Click to select an image</p>
-                <small>JPG/PNG with pole visible</small>
-            </div>
-            <input type="text" id="inspectLat" placeholder="Latitude" value="">
-            <input type="text" id="inspectLon" placeholder="Longitude" value="">
-            <input type="number" id="poleAge" placeholder="Age (years)" value="20">
-            <button id="analyzeBtn">🔍 Analyze & Get AI Recommendation</button>
-            <div id="analysisResult" class="result" style="display:none;"></div>
-        </div>
-
-        <div class="card storm-sim">
-            <h3>🌪️ Storm Simulator</h3>
-            <div><label>Wind Speed (mph):</label><input type="range" id="simWind" min="0" max="100" value="60"><span id="windVal">60</span> mph</div>
-            <div><label>Rainfall (in):</label><input type="range" id="simRain" min="0" max="5" step="0.1" value="2"><span id="rainVal">2.0</span> in</div>
-            <button id="simulateStormBtn">🌀 Simulate Storm Impact</button>
-            <div id="stormResult" class="result" style="display:none;"></div>
-        </div>
-
-        <div class="card">
-            <h3>📍 Real Poles Nearby (Click to focus)</h3>
-            <div id="poleList" class="pole-list">Loading poles...</div>
-        </div>
-        <footer>Powered by IBM watsonx.ai | NOAA Weather | OpenStreetMap</footer>
+        <div id="stormToggleBtn" class="storm-toggle">🌩️ STORM MODE</div>
     </div>
-    <div class="map-container">
-        <div id="map"></div>
+    <div class="main">
+        <div class="sidebar" id="poleList"></div>
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+        <div class="analytics" id="analyticsPanel"></div>
     </div>
 </div>
 
 <script>
-    let map, markers = {}, polesData = [];
-    let currentLat = null, currentLon = null;
+    let map = null;
+    let markers = {};
+    let allPoles = [];
+    let stormMode = false;
 
-    function initMap() {
-        map = L.map('map').setView([42.3314, -83.0458], 11);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> & CartoDB',
-            subdomains: 'abcd',
-            maxZoom: 19
-        }).addTo(map);
+    async function fetchPoles() {
+        const res = await fetch('/api/poles');
+        allPoles = await res.json();
+        renderPoleList();
+        renderAnalytics();
+        if (!map) initMap();
+        updateMap();
     }
 
-    function clearMarkers() {
-        Object.values(markers).forEach(m => map.removeLayer(m));
-        markers = {};
+    function getRiskColor(score) {
+        if (score >= 70) return '#E24B4A';
+        if (score >= 45) return '#EF9F27';
+        return '#639922';
     }
 
-    function updateMarkers(poles) {
-        clearMarkers();
-        poles.forEach(pole => {
-            if (!pole.lat || !pole.lng) return;
-            const risk = pole.risk_level || (pole.current_risk_score > 70 ? 'High' : pole.current_risk_score > 40 ? 'Medium' : 'Low');
-            let color = '#2ecc71';
-            if (risk === 'High') color = '#e74c3c';
-            else if (risk === 'Medium') color = '#f39c12';
-            const popupContent = `<b>${pole.id || pole.pole_id || 'Unknown'}</b><br>Risk: ${risk}<br>Score: ${pole.current_risk_score || '?'}<br>Material: ${pole.material || 'unknown'}<br>Source: ${pole.source || 'OSM'}`;
-            const marker = L.marker([pole.lat, pole.lng], {
-                icon: L.divIcon({ html: `<div style="background:${color}; width:14px; height:14px; border-radius:50%; border:2px solid white;"></div>`, iconSize: [14,14], className: 'custom-marker' })
-            }).addTo(map).bindPopup(popupContent);
-            markers[pole.id || pole.pole_id] = marker;
+    function renderPoleList() {
+        const container = document.getElementById('poleList');
+        container.innerHTML = '<div style="padding:10px; text-align:center;">📌 REAL POLES FROM OSM</div>';
+        allPoles.forEach(p => {
+            const div = document.createElement('div');
+            div.className = 'pole-item';
+            div.innerHTML = `<div><b>${p.id}</b> <span class="risk-badge" style="background:${getRiskColor(p.riskScore)}; color:white">${p.riskScore}</span></div><div style="font-size:10px;">${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}</div>`;
+            div.onclick = () => {
+                if (markers[p.id]) {
+                    map.setView([p.lat, p.lon], 16);
+                    markers[p.id].openPopup();
+                }
+            };
+            container.appendChild(div);
         });
     }
 
-    async function fetchRealPoles(lat, lon, radiusKm = 3) {
-        if (!lat || !lon) return [];
-        const url = `/api/poles?lat=${lat}&lon=${lon}&radius=${radiusKm}`;
-        try {
-            const res = await fetch(url);
+    function renderAnalytics() {
+        const critical = allPoles.filter(p=>p.riskScore>=70).length;
+        const high = allPoles.filter(p=>p.riskScore>=45 && p.riskScore<70).length;
+        const avg = Math.round(allPoles.reduce((a,b)=>a+b.riskScore,0)/allPoles.length);
+        document.getElementById('analyticsPanel').innerHTML = `
+            <div style="color:#4a6070; font-size:11px; margin-bottom:16px;">📊 REAL‑TIME STATS</div>
+            <div>Total Poles: ${allPoles.length}</div>
+            <div>Critical: ${critical} | High: ${high}</div>
+            <div>Avg Risk: ${avg}</div>
+            <button id="stormAnalyzeBtn" style="margin-top:20px;">⛈️ RUN STORM SIM</button>
+            <button id="exportKmlBtn" style="margin-top:8px;">📡 EXPORT KML</button>
+        `;
+        document.getElementById('stormAnalyzeBtn')?.addEventListener('click', async () => {
+            const polesForSim = allPoles.map(p => ({ pole_id: p.id, lat: p.lat, lon: p.lon, age: p.age, material: p.material, current_risk_score: p.riskScore }));
+            const res = await fetch('/api/predict_storm_impact', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ poles: polesForSim, use_forecast: false, custom_wind: 60, custom_rain: 2 }) });
             const data = await res.json();
-            console.log(`Fetched ${data.length} poles from server`, data);
-            polesData = data;
-            updateMarkers(data);
-            updatePoleList(data);
-            return data;
-        } catch (err) {
-            console.error("Failed to fetch poles:", err);
-            return [];
-        }
-    }
-
-    function updatePoleList(poles) {
-        const container = document.getElementById('poleList');
-        if (!poles.length) {
-            container.innerHTML = '<div class="pole-item">No poles found in this area. Try a different location.</div>';
-            return;
-        }
-        const isMock = poles.some(p => p.source === 'mock');
-        let mockNotice = '';
-        if (isMock) {
-            mockNotice = '<div class="mock-warning">⚠️ No real poles found in OSM. Showing simulated poles for demo.</div>';
-        }
-        container.innerHTML = mockNotice + poles.map(p => {
-            const risk = p.risk_level || (p.current_risk_score > 70 ? 'High' : p.current_risk_score > 40 ? 'Medium' : 'Low');
-            return `<div class="pole-item" onclick="map.setView([${p.lat}, ${p.lng}], 18)">
-                        <span><b>${p.id || p.pole_id || 'Pole'}</b><br><small>${p.material || 'unknown'} | ${p.source || 'OSM'}</small></span>
-                        <span style="color:${risk==='High'?'#e74c3c':risk==='Medium'?'#f39c12':'#2ecc71'}">● ${risk}</span>
-                    </div>`;
-        }).join('');
-    }
-
-    async function updateWeather(lat, lon) {
-        if (!lat || !lon) return;
-        try {
-            const res = await fetch(`/api/weather/now?lat=${lat}&lon=${lon}`);
-            const weather = await res.json();
-            document.getElementById('weatherWidget').innerHTML = `
-                <div class="weather-info">
-                    <span>🌡️ ${weather.temperature}°F</span>
-                    <span>💨 ${weather.wind_speed_mph} mph</span>
-                    <span>☁️ ${weather.conditions}</span>
-                </div>
-                <div>Source: ${weather.source} | Updated: ${new Date(weather.timestamp).toLocaleTimeString()}</div>
-            `;
-            const alertRes = await fetch(`/api/storm_alerts?lat=${lat}&lon=${lon}`);
-            const alerts = await alertRes.json();
-            const alertHtml = alerts.alerts && alerts.alerts.length ? 
-                `<div class="alert-badge">⚠️ ${alerts.alerts[0].headline}</div><div><small>Gusts up to ${alerts.max_forecast_wind_mph} mph</small></div>` :
-                `<div>✅ No active storm warnings</div>`;
-            document.getElementById('stormAlert').innerHTML = alertHtml;
-        } catch (err) {
-            console.error("Weather fetch failed:", err);
-        }
-    }
-
-    function getUserLocation() {
-        if (!navigator.geolocation) {
-            alert("Geolocation not supported.");
-            return;
-        }
-        document.getElementById('locationDisplay').innerHTML = "📍 Getting location...";
-        navigator.geolocation.getCurrentPosition(
-            async (position) => {
-                currentLat = position.coords.latitude;
-                currentLon = position.coords.longitude;
-                document.getElementById('locationDisplay').innerHTML = `📍 Your location: ${currentLat.toFixed(4)}, ${currentLon.toFixed(4)}`;
-                map.setView([currentLat, currentLon], 13);
-                updateWeather(currentLat, currentLon);
-                document.getElementById('inspectLat').value = currentLat;
-                document.getElementById('inspectLon').value = currentLon;
-                await fetchRealPoles(currentLat, currentLon, 3);
-            },
-            (error) => {
-                console.error(error);
-                let errorMsg = "Location permission denied. Using default (Detroit).";
-                document.getElementById('locationDisplay').innerHTML = `⚠️ ${errorMsg}`;
-                currentLat = 42.3314;
-                currentLon = -83.0458;
-                updateWeather(currentLat, currentLon);
-                map.setView([currentLat, currentLon], 11);
-                document.getElementById('inspectLat').value = currentLat;
-                document.getElementById('inspectLon').value = currentLon;
-                fetchRealPoles(currentLat, currentLon, 3);
-            },
-            { enableHighAccuracy: true, timeout: 10000 }
-        );
-    }
-
-    // Image analysis
-    const uploadArea = document.getElementById('uploadArea');
-    const imageInput = document.getElementById('imageInput');
-    uploadArea.addEventListener('click', () => imageInput.click());
-    imageInput.addEventListener('change', (e) => {
-        if (e.target.files.length) {
-            uploadArea.innerHTML = `<p>📸 ${e.target.files[0].name}</p><small>Click to change</small>`;
-        } else {
-            uploadArea.innerHTML = `<p>📤 Click to select an image</p><small>JPG/PNG with pole visible</small>`;
-        }
-    });
-
-    const analyzeBtn = document.getElementById('analyzeBtn');
-    analyzeBtn.addEventListener('click', async () => {
-        const file = imageInput.files[0];
-        if (!file) { alert('Please select an image first'); return; }
-        let lat = document.getElementById('inspectLat').value;
-        let lon = document.getElementById('inspectLon').value;
-        const age = document.getElementById('poleAge').value;
-        if (!lat || !lon) { alert('Please provide latitude and longitude (use "My Location" button to fill)'); return; }
-        const resultDiv = document.getElementById('analysisResult');
-        resultDiv.style.display = 'block';
-        resultDiv.innerHTML = 'Analyzing... Please wait.';
-        analyzeBtn.disabled = true;
-        analyzeBtn.textContent = '⏳ Analyzing...';
-        const formData = new FormData();
-        formData.append('image', file);
-        formData.append('lat', lat);
-        formData.append('lon', lon);
-        formData.append('age', age);
-        try {
-            const response = await fetch('/api/analyze', { method: 'POST', body: formData });
-            const data = await response.json();
-            if (data.success) {
-                resultDiv.innerHTML = `
-                    <b>Risk Score:</b> ${data.risk_score} (${data.risk_level})<br>
-                    <b>Estimated Repair:</b> $${data.estimated_repair_cost}<br>
-                    <b>Tilt:</b> ${data.features.tilt_angle.toFixed(1)}° | <b>Crack:</b> ${(data.features.crack_score*100).toFixed(1)}%<br>
-                    <b>Rust:</b> ${(data.features.rust_percentage*100).toFixed(1)}% | <b>Vegetation:</b> ${(data.features.vegetation_proximity*100).toFixed(1)}%<br>
-                    <b>AI Recommendation:</b><br>${data.recommendation}<br>
-                    <img src="${data.image_preview}" width="100%" style="margin-top:8px; border-radius:8px;">
-                `;
-            } else {
-                resultDiv.innerHTML = `<b>Error:</b> ${data.error || 'Analysis failed'}`;
-            }
-        } catch (err) {
-            console.error(err);
-            resultDiv.innerHTML = `<b>Network Error:</b> ${err.message}`;
-        } finally {
-            analyzeBtn.disabled = false;
-            analyzeBtn.textContent = '🔍 Analyze & Get AI Recommendation';
-        }
-    });
-
-    // Storm simulation
-    const stormBtn = document.getElementById('simulateStormBtn');
-    const stormResultDiv = document.getElementById('stormResult');
-
-    stormBtn.addEventListener('click', async () => {
-        console.log("Storm button clicked");
-        let polesToSimulate = polesData;
-        if (!polesToSimulate || polesToSimulate.length === 0) {
-            console.warn("No poles loaded, generating mock poles for simulation");
-            const lat = currentLat || 42.3314;
-            const lon = currentLon || -83.0458;
-            polesToSimulate = [];
-            for (let i = 0; i < 8; i++) {
-                polesToSimulate.push({
-                    id: `MOCK-${i}`,
-                    lat: lat + (Math.random() - 0.5) * 0.02,
-                    lng: lon + (Math.random() - 0.5) * 0.02,
-                    current_risk_score: Math.random() * 100,
-                    age: Math.floor(Math.random() * 50) + 5,
-                    material: ['wood', 'steel', 'composite'][Math.floor(Math.random() * 3)]
-                });
-            }
-            polesData = polesToSimulate;
-            updateMarkers(polesToSimulate);
-            updatePoleList(polesToSimulate);
-        }
-
-        const wind = document.getElementById('simWind').value;
-        const rain = document.getElementById('simRain').value;
-
-        stormResultDiv.style.display = 'block';
-        stormResultDiv.innerHTML = 'Simulating storm impact...';
-        stormBtn.disabled = true;
-        stormBtn.textContent = '⏳ Simulating...';
-
-        try {
-            const response = await fetch('/api/predict_storm_impact', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ poles: polesToSimulate, use_forecast: false, custom_wind: parseFloat(wind), custom_rain: parseFloat(rain) })
-            });
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Server returned ${response.status}: ${errorText.substring(0, 200)}`);
-            }
-            const data = await response.json();
-            console.log("Storm simulation response:", data);
-            const totalCost = data.total_estimated_cost;
-            const highFailures = data.affected_poles.filter(p => p.failure_probability > 0.7).length;
-            stormResultDiv.innerHTML = `
-                <b>💥 Storm Impact</b><br>
-                Total estimated damage: <b>$${totalCost.toLocaleString()}</b><br>
-                Poles with >70% failure chance: ${highFailures}<br>
-                <button id="downloadKmlBtn" style="background:#27ae60; margin-top:8px;">📥 Download KML for Google Earth</button>
-            `;
-            const downloadBtn = document.getElementById('downloadKmlBtn');
-            if (downloadBtn) {
-                downloadBtn.onclick = () => downloadKML(data.affected_poles);
-            }
-        } catch (err) {
-            console.error("Storm simulation error:", err);
-            stormResultDiv.innerHTML = `<b>Error:</b> ${err.message}`;
-        } finally {
-            stormBtn.disabled = false;
-            stormBtn.textContent = '🌀 Simulate Storm Impact';
-        }
-    });
-
-    async function downloadKML(damageData) {
-        try {
-            const res = await fetch('/api/generate_kml', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ damage_data: damageData, storm_name: 'Simulated_Storm' })
-            });
+            alert(`Storm impact: $${data.total_estimated_cost} total repairs.\nCheck console for details.`);
+        });
+        document.getElementById('exportKmlBtn')?.addEventListener('click', async () => {
+            const damage = allPoles.map(p => ({ pole_id: p.id, latitude: p.lat, longitude: p.lon, risk_score: p.riskScore, risk_level: p.risk_level, estimated_repair_cost: 5000 }));
+            const res = await fetch('/api/generate_kml', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ damage_data: damage, storm_name: 'Live_Assessment' }) });
             const data = await res.json();
             window.open(data.kml_url, '_blank');
-        } catch (err) {
-            console.error("KML generation error:", err);
-            alert("Failed to generate KML: " + err.message);
-        }
+        });
     }
 
-    // Range sliders
-    document.getElementById('simWind').oninput = () => document.getElementById('windVal').innerText = document.getElementById('simWind').value;
-    document.getElementById('simRain').oninput = () => document.getElementById('rainVal').innerText = parseFloat(document.getElementById('simRain').value).toFixed(1);
+    function initMap() {
+        map = L.map('map').setView([42.3314, -83.0458], 10);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; OSM' }).addTo(map);
+        updateMap();
+    }
 
-    window.onload = () => {
-        initMap();
-        document.getElementById('getLocationBtn').onclick = getUserLocation;
-        getUserLocation();
-        setInterval(() => { if (currentLat && currentLon) fetchRealPoles(currentLat, currentLon, 3); }, 60000);
-    };
+    function updateMap() {
+        if (!map) return;
+        for (let id in markers) map.removeLayer(markers[id]);
+        markers = {};
+        allPoles.forEach(p => {
+            const color = getRiskColor(p.riskScore);
+            const isStormRisk = stormMode && p.riskScore >= 60;
+            const circle = L.circleMarker([p.lat, p.lon], { radius: isStormRisk ? 12 : 8, color: isStormRisk ? '#E24B4A' : color, fillOpacity: 0.8, weight: 2, fillColor: isStormRisk ? '#E24B4A' : color }).addTo(map);
+            circle.bindPopup(`<b>${p.id}</b><br>Risk: ${p.riskScore}<br>Tilt: ${p.tilt}°<br>Age: ${p.age} yrs`);
+            markers[p.id] = circle;
+        });
+    }
+
+    async function toggleStorm() {
+        stormMode = !stormMode;
+        const btn = document.getElementById('stormToggleBtn');
+        if (stormMode) {
+            btn.classList.add('active');
+            const alerts = await fetch('/api/storm_alerts').then(r=>r.json());
+            alert(`⚠️ STORM MODE ACTIVE\n${alerts.stormAlert}\nWinds: ${alerts.windSpeed} mph\nPrecip: ${alerts.precipIn} in`);
+        } else {
+            btn.classList.remove('active');
+        }
+        updateMap();
+    }
+
+    document.getElementById('stormToggleBtn').addEventListener('click', toggleStorm);
+    fetchPoles();
+    setInterval(fetchPoles, 60000); // refresh every minute
 </script>
 </body>
 </html>
