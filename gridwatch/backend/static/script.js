@@ -1,9 +1,10 @@
-// GridWatch AI – Full Frontend with working 3D modal close
+// GridWatch AI – Full Frontend with CSV, History, Budget Simulator
 const API_BASE = '';
 let currentPoles = [], currentWeather = null, selectedPole = null, currentTab = 'map';
 let leafletMap = null, stormMode = false, stormData = null;
 let heatLayer = null;
 let threeRenderer = null, threeScene = null, threeCamera = null, threeAnimationId = null;
+let historyChart = null;
 const RISK_COLORS = { Critical: '#E24B4A', High: '#EF9F27', Medium: '#378ADD', Low: '#639922' };
 function getRiskLevel(score) { if (score>=70) return 'Critical'; if (score>=45) return 'High'; if (score>=25) return 'Medium'; return 'Low'; }
 
@@ -59,7 +60,7 @@ function renderPoleList() {
     }).join('');
     document.querySelectorAll('.pole-item').forEach(el => el.addEventListener('click', () => { const id = el.dataset.id; const p = currentPoles.find(p => p.pole_id===id); if(p) selectPole(p); }));
 }
-function selectPole(pole) { selectedPole = pole; renderPoleList(); if(currentTab==='detail') renderDetailView(); if(currentTab==='ai') renderAIView(); if(currentTab==='cv') renderCVView(); updateRightPanel(); }
+function selectPole(pole) { selectedPole = pole; renderPoleList(); if(currentTab==='detail') renderDetailView(); if(currentTab==='ai') renderAIView(); if(currentTab==='cv') renderCVView(); if(currentTab==='history') renderHistoryView(); updateRightPanel(); }
 
 function initMap() {
     leafletMap = L.map('map').setView([42.33,-83.10],11);
@@ -114,6 +115,8 @@ function switchTab(tabId) {
     if(tabId==='analytics') renderAnalytics();
     if(tabId==='predict') renderCustomPredict();
     if(tabId==='priority') renderPriorityView();
+    if(tabId==='history') renderHistoryView();
+    if(tabId==='budget') renderBudgetSimulator();
 }
 
 function renderDetailView() {
@@ -174,12 +177,10 @@ function renderDetailView() {
     });
 }
 
-// 3D View with proper close and cleanup
 async function open3DView(pole) {
     const modal = document.getElementById('threeDModal');
     modal.style.display = 'block';
     const canvas = document.getElementById('threeCanvas');
-    // Clean up previous scene if any
     if (threeRenderer) {
         if (threeAnimationId) cancelAnimationFrame(threeAnimationId);
         threeRenderer.dispose();
@@ -201,39 +202,25 @@ async function open3DView(pole) {
     threeCamera.position.z = 5;
     function animate() {
         threeAnimationId = requestAnimationFrame(animate);
-        if (threeRenderer && threeScene && threeCamera) {
-            threeRenderer.render(threeScene, threeCamera);
-        }
+        if (threeRenderer && threeScene && threeCamera) threeRenderer.render(threeScene, threeCamera);
     }
     animate();
     document.getElementById('damageText').innerText = `Crack:${data.damage.crack?'Yes':'No'} Rust:${data.damage.rust?'Yes':'No'} Tilt:${data.damage.tilt}°`;
 }
 
-// Ensure close button works and cleanup 3D resources
 function setupModalClose() {
     const modal = document.getElementById('threeDModal');
     const closeBtn = document.getElementById('close3DBtn');
-    if (closeBtn) {
-        closeBtn.onclick = () => {
-            modal.style.display = 'none';
-            if (threeRenderer) {
-                if (threeAnimationId) cancelAnimationFrame(threeAnimationId);
-                threeRenderer.dispose();
-                threeScene = null; threeCamera = null; threeRenderer = null;
-            }
-        };
-    }
-    // Also close when clicking outside the modal content
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            modal.style.display = 'none';
-            if (threeRenderer) {
-                if (threeAnimationId) cancelAnimationFrame(threeAnimationId);
-                threeRenderer.dispose();
-                threeScene = null; threeCamera = null; threeRenderer = null;
-            }
+    const closeHandler = () => {
+        modal.style.display = 'none';
+        if (threeRenderer) {
+            if (threeAnimationId) cancelAnimationFrame(threeAnimationId);
+            threeRenderer.dispose();
+            threeScene = null; threeCamera = null; threeRenderer = null;
         }
-    });
+    };
+    if (closeBtn) closeBtn.onclick = closeHandler;
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeHandler(); });
 }
 
 async function updateSavingsDisplay() {
@@ -278,51 +265,144 @@ async function callAI(type) {
 
 function renderStormView() {
     const container = document.getElementById('stormView');
-    container.innerHTML = `<div class="card"><div class="card-title">STORM SIMULATION</div><label>Wind (mph): <input type="range" id="stormWind" min="10" max="100" value="60"> <span id="windVal">60</span></label><br>
+    container.innerHTML = `<div class="card"><div class="card-title">STORM SIMULATION</div>
+        <label>Wind (mph): <input type="range" id="stormWind" min="10" max="100" value="60"> <span id="windVal">60</span></label><br>
         <label>Gusts (mph): <input type="range" id="stormGust" min="15" max="130" value="78"> <span id="gustVal">78</span></label><br>
         <label>Precip (in): <input type="range" id="stormPrecip" min="0" max="6" step="0.1" value="2"> <span id="precipVal">2.0</span></label><br>
-        <button id="runStormSim" class="btn-secondary">Run Simulation</button><div id="stormResults"></div></div>`;
-    document.getElementById('stormWind').oninput = e=>document.getElementById('windVal').innerText=e.target.value;
-    document.getElementById('stormGust').oninput = e=>document.getElementById('gustVal').innerText=e.target.value;
-    document.getElementById('stormPrecip').oninput = e=>document.getElementById('precipVal').innerText=e.target.value;
-    document.getElementById('runStormSim').onclick = async ()=>{
-        const wind = parseFloat(document.getElementById('stormWind').value);
-        const gust = parseFloat(document.getElementById('stormGust').value);
-        const precip = parseFloat(document.getElementById('stormPrecip').value);
-        const res = await apiCall('/api/storm/simulate','POST',{wind_mph:wind, gust_mph:gust, precipitation_in:precip});
-        stormMode = true; stormData = res;
-        document.getElementById('stormResults').innerHTML = `<pre>${JSON.stringify(res.impact,null,2)}</pre>`;
-        renderPoleList(); updateMapMarkers();
-        const banner = document.getElementById('stormBanner');
-        banner.style.display = 'flex';
-        banner.innerHTML = `⚡ STORM SIMULATION ACTIVE — ${res.impact.poles_failing} poles failing · ${res.impact.estimated_customers_affected?.toLocaleString()} customers affected <button id="clearStormBtn" class="btn-secondary" style="margin-left:auto;">Clear</button>`;
-        document.getElementById('clearStormBtn').onclick = ()=>{ stormMode=false; stormData=null; loadRegion(); banner.style.display='none'; };
-    };
+        <button id="runStormSim" class="btn-secondary">Run Simulation</button>
+        <div id="stormResults"></div>
+    </div>`;
+    const windSlider = document.getElementById('stormWind');
+    const gustSlider = document.getElementById('stormGust');
+    const precipSlider = document.getElementById('stormPrecip');
+    const windVal = document.getElementById('windVal');
+    const gustVal = document.getElementById('gustVal');
+    const precipVal = document.getElementById('precipVal');
+    if (windSlider) windSlider.oninput = () => windVal.innerText = windSlider.value;
+    if (gustSlider) gustSlider.oninput = () => gustVal.innerText = gustSlider.value;
+    if (precipSlider) precipSlider.oninput = () => precipVal.innerText = parseFloat(precipSlider.value).toFixed(1);
+    const runBtn = document.getElementById('runStormSim');
+    if (runBtn) {
+        runBtn.onclick = async () => {
+            const wind = parseFloat(windSlider.value);
+            const gust = parseFloat(gustSlider.value);
+            const precip = parseFloat(precipSlider.value);
+            const resultsDiv = document.getElementById('stormResults');
+            resultsDiv.innerHTML = '⏳ Simulating...';
+            try {
+                const res = await apiCall('/api/storm/simulate', 'POST', {
+                    wind_mph: wind,
+                    gust_mph: gust,
+                    precipitation_in: precip
+                });
+                stormMode = true;
+                stormData = res;
+                resultsDiv.innerHTML = `<pre>${JSON.stringify(res.impact, null, 2)}</pre>`;
+                renderPoleList();
+                updateMapMarkers();
+                const banner = document.getElementById('stormBanner');
+                banner.style.display = 'flex';
+                banner.innerHTML = `⚡ STORM SIMULATION ACTIVE — ${res.impact.poles_failing} poles failing · ${res.impact.estimated_customers_affected?.toLocaleString()} customers affected <button id="clearStormBtn" class="btn-secondary" style="margin-left:auto;">Clear</button>`;
+                document.getElementById('clearStormBtn').onclick = () => {
+                    stormMode = false;
+                    stormData = null;
+                    loadRegion();
+                    banner.style.display = 'none';
+                };
+            } catch (e) {
+                resultsDiv.innerHTML = `Error: ${e.message}`;
+            }
+        };
+    }
 }
 
 async function renderAnalytics() {
     const container = document.getElementById('analyticsView');
     container.innerHTML = '<div class="card">Loading analytics...</div>';
-    const data = await apiCall('/api/analytics');
-    container.innerHTML = `<div class="card"><canvas id="riskHistogram" width="400" height="200"></canvas></div><div class="card"><canvas id="featureImportance" width="400" height="200"></canvas></div><div class="card"><pre>${JSON.stringify(data.model_metrics,null,2)}</pre></div>`;
-    if(data.risk_histogram) new Chart(document.getElementById('riskHistogram'),{type:'bar',data:{labels:data.risk_histogram.map(d=>d.range),datasets:[{label:'Poles',data:data.risk_histogram.map(d=>d.count),backgroundColor:'#378ADD'}]}});
-    if(data.feature_importance) new Chart(document.getElementById('featureImportance'),{type:'bar',data:{labels:data.feature_importance.slice(0,8).map(f=>f.feature),datasets:[{label:'Importance',data:data.feature_importance.slice(0,8).map(f=>f.importance),backgroundColor:'#5DCAA5'}]}});
+    try {
+        const data = await apiCall('/api/analytics');
+        container.innerHTML = `
+            <div class="card"><h4>Risk Score Distribution</h4><canvas id="riskHistogram" width="400" height="200"></canvas></div>
+            <div class="card"><h4>Feature Importance (Top 8)</h4><canvas id="featureImportance" width="400" height="200"></canvas></div>
+            <div class="card"><h4>Average Risk by District</h4><canvas id="districtChart" width="400" height="200"></canvas></div>
+            <div class="card"><h4>Model Metrics</h4><pre>${JSON.stringify(data.model_metrics, null, 2)}</pre></div>
+        `;
+        if (data.risk_histogram && data.risk_histogram.length) {
+            new Chart(document.getElementById('riskHistogram'), {
+                type: 'bar',
+                data: { labels: data.risk_histogram.map(d => d.range), datasets: [{ label: 'Number of Poles', data: data.risk_histogram.map(d => d.count), backgroundColor: '#378ADD' }] },
+                options: { responsive: true }
+            });
+        }
+        if (data.feature_importance && data.feature_importance.length) {
+            const top = data.feature_importance.slice(0, 8);
+            new Chart(document.getElementById('featureImportance'), {
+                type: 'bar',
+                data: { labels: top.map(f => f.feature), datasets: [{ label: 'Importance', data: top.map(f => f.importance), backgroundColor: '#5DCAA5' }] },
+                options: { responsive: true }
+            });
+        }
+        if (data.district_data && data.district_data.length) {
+            const districts = data.district_data.slice(0, 10);
+            new Chart(document.getElementById('districtChart'), {
+                type: 'bar',
+                data: { labels: districts.map(d => d.district), datasets: [{ label: 'Average Risk Score', data: districts.map(d => d.avg_risk), backgroundColor: '#EF9F27' }] },
+                options: { responsive: true }
+            });
+        }
+    } catch (e) {
+        container.innerHTML = `<div class="card">Error loading analytics: ${e.message}</div>`;
+    }
 }
 
 function renderCustomPredict() {
     const container = document.getElementById('predictView');
-    container.innerHTML = `<div class="card"><div class="card-title">CUSTOM POLE PREDICTION</div><label>Age: <input type="number" id="predAge" value="25"></label><br>
-        <label>Tilt: <input type="number" id="predTilt" value="5" step="0.5"></label><br>
-        <label>Material: <select id="predMaterial"><option>Wood</option><option>Steel</option><option>Concrete</option></select></label><br>
-        <label>Crack: <input type="checkbox" id="predCrack"></label><br>
-        <label>Rust: <input type="checkbox" id="predRust"></label><br>
-        <label>Vegetation: <select id="predVeg"><option>low</option><option>medium</option><option>high</option></select></label><br>
-        <label>Flood Zone: <select id="predFlood"><option>X</option><option>AE</option><option>A</option></select></label><br>
-        <button id="runCustomPredict" class="btn-secondary">Predict</button><div id="customResult"></div></div>`;
-    document.getElementById('runCustomPredict').onclick = async ()=>{
-        const body = { age:parseInt(document.getElementById('predAge').value), tilt_angle:parseFloat(document.getElementById('predTilt').value), material:document.getElementById('predMaterial').value, crack_detected:document.getElementById('predCrack').checked, rust_detected:document.getElementById('predRust').checked, vegetation_risk:document.getElementById('predVeg').value, flood_zone:document.getElementById('predFlood').value };
-        const res = await apiCall('/api/predict','POST',body);
-        document.getElementById('customResult').innerHTML = `<pre>${JSON.stringify(res,null,2)}</pre>`;
+    container.innerHTML = `
+        <div class="card">
+            <div class="card-title">CUSTOM POLE PREDICTION</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div><label title="Age of the pole in years">Age (years):</label><br><input type="number" id="predAge" value="25" style="width:100%"></div>
+                <div><label title="Material type">Material:</label><br><select id="predMaterial" style="width:100%"><option>Wood</option><option>Steel</option><option>Concrete</option><option>Composite</option></select></div>
+                <div><label title="Tilt angle in degrees, higher = unstable">Tilt Angle (°):</label><br><input type="number" id="predTilt" value="5" step="0.5" style="width:100%"></div>
+                <div><label title="Visible cracks on the pole">Cracks detected:</label><br><input type="checkbox" id="predCrack"></div>
+                <div><label title="Visible rust or corrosion">Rust detected:</label><br><input type="checkbox" id="predRust"></div>
+                <div><label title="Risk from nearby vegetation (high/medium/low)">Vegetation Risk:</label><br><select id="predVeg" style="width:100%"><option>low</option><option>medium</option><option>high</option></select></div>
+                <div><label title="Exposure to strong winds">Wind Exposure:</label><br><select id="predWind" style="width:100%"><option>low</option><option>medium</option><option>high</option></select></div>
+                <div><label title="FEMA flood zone (AE/A = high flood risk)">Flood Zone:</label><br><select id="predFlood" style="width:100%"><option>X</option><option>AE</option><option>A</option><option>B</option></select></div>
+                <div><label title="Pole height in feet; taller poles face higher wind loads">Height (ft):</label><br><input type="number" id="predHeight" value="35" step="1" style="width:100%"></div>
+                <div><label title="Distance from road in feet; closer = higher collision risk">Road Proximity (ft):</label><br><input type="number" id="predRoad" value="50" step="5" style="width:100%"></div>
+                <div><label title="Number of transformers mounted; extra weight increases risk">Transformers:</label><br><input type="number" id="predXfmr" value="1" min="0" max="3" style="width:100%"></div>
+                <div><label title="Year of last maintenance; newer is better">Last Maintenance Year:</label><br><input type="number" id="predMaint" value="2018" min="2010" max="2024" style="width:100%"></div>
+                <div><label title="Air Quality Index (0-500); higher = more corrosive">AQI (Air Quality):</label><br><input type="number" id="predAqi" value="50" min="0" max="500" style="width:100%"></div>
+                <div><label title="Soil moisture (0-1); wetter soil increases tilt risk">Soil Moisture:</label><br><input type="number" id="predSoil" value="0.5" step="0.1" min="0" max="1" style="width:100%"></div>
+            </div>
+            <button id="runCustomPredict" class="btn-secondary" style="margin-top:15px;">Run Prediction</button>
+            <div id="customResult" style="margin-top:15px;"></div>
+        </div>
+    `;
+    document.getElementById('runCustomPredict').onclick = async () => {
+        const body = {
+            age: parseInt(document.getElementById('predAge').value),
+            material: document.getElementById('predMaterial').value,
+            tilt_angle: parseFloat(document.getElementById('predTilt').value),
+            crack_detected: document.getElementById('predCrack').checked,
+            rust_detected: document.getElementById('predRust').checked,
+            vegetation_risk: document.getElementById('predVeg').value,
+            wind_exposure: document.getElementById('predWind').value,
+            flood_zone: document.getElementById('predFlood').value,
+            height_ft: parseFloat(document.getElementById('predHeight').value),
+            road_proximity_ft: parseFloat(document.getElementById('predRoad').value),
+            num_transformers: parseInt(document.getElementById('predXfmr').value),
+            last_maintenance_year: parseInt(document.getElementById('predMaint').value),
+            aqi: parseInt(document.getElementById('predAqi').value),
+            soil_moisture: parseFloat(document.getElementById('predSoil').value)
+        };
+        try {
+            const res = await apiCall('/api/predict', 'POST', body);
+            document.getElementById('customResult').innerHTML = `<pre>${JSON.stringify(res, null, 2)}</pre>`;
+        } catch (e) {
+            document.getElementById('customResult').innerHTML = `<div class="text-critical">Error: ${e.message}</div>`;
+        }
     };
 }
 
@@ -333,20 +413,119 @@ async function renderPriorityView() {
         const data = await apiCall('/api/priority');
         if (data.error) { container.innerHTML = `<div class="card">${data.error}</div>`; return; }
         const poles = data.top_priority_poles || [];
-        container.innerHTML = `<div class="card"><div class="card-title">TOP 20 URGENT POLES (by Priority Score)</div>
-            <table style="width:100%; font-size:11px; border-collapse:collapse;">
-                <thead><tr style="border-bottom:1px solid #1a2e3b; text-align:left;"><th>Rank</th><th>Pole ID</th><th>District</th><th>Priority</th><th>Risk</th><th>Storm Fail %</th><th>Recommendation</th></td></thead>
-                <tbody>${poles.map((p, idx) => `<tr style="border-bottom:1px solid #1a2e3b;">
-                    <td style="padding:6px 4px;">${idx+1}</td>
-                    <td style="padding:6px 4px;"><strong>${p.pole_id}</strong></td>
-                    <td style="padding:6px 4px;">${p.district}</td>
-                    <td style="padding:6px 4px;">${p.priority_score}</td>
-                    <td style="padding:6px 4px;">${p.risk_score}</td>
-                    <td style="padding:6px 4px;">${(p.storm_failure_probability*100).toFixed(0)}%</td>
-                    <td style="padding:6px 4px;">${p.recommendation?.replace(/_/g,' ')}</td>
-                </tr>`).join('')}</tbody>
-            </table><div style="margin-top:12px; font-size:9px; color:#4a6070;">Priority = 0.5*Risk + 0.3*StormProb + 0.2*CostNorm</div></div>`;
-    } catch(e) { container.innerHTML = `<div class="card">Error: ${e.message}</div>`; }
+        container.innerHTML = `
+            <div class="card">
+                <div class="card-title">TOP 20 URGENT POLES (by Priority Score)</div>
+                <div style="overflow-x:auto;">
+                    <table style="width:100%; font-size:11px; border-collapse:collapse;">
+                        <thead><tr style="border-bottom:1px solid #1a2e3b; text-align:left;">
+                            <th>Rank</th><th>Pole ID</th><th>District</th><th>Priority</th><th>Risk</th><th>Storm Fail %</th><th>Recommendation</th>
+                        </td></thead>
+                        <tbody id="priorityTableBody">
+                            ${poles.map((p, idx) => `
+                                <tr class="priority-row" data-pole-id="${p.pole_id}" style="border-bottom:1px solid #1a2e3b; cursor:pointer; transition:background 0.1s;">
+                                    <td style="padding:6px 4px;">${idx+1}</td>
+                                    <td style="padding:6px 4px;"><strong>${p.pole_id}</strong></td>
+                                    <td style="padding:6px 4px;">${p.district}</td>
+                                    <td style="padding:6px 4px;">${p.priority_score}</td>
+                                    <td style="padding:6px 4px;">${p.risk_score}</td>
+                                    <td style="padding:6px 4px;">${(p.storm_failure_probability*100).toFixed(0)}%</td>
+                                    <td style="padding:6px 4px;">${p.recommendation?.replace(/_/g,' ')}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <div style="margin-top:12px; font-size:9px; color:#4a6070;">Priority = 0.5*Risk + 0.3*StormProb + 0.2*CostNorm<br>✨ Click on any row to locate the pole on the map.</div>
+            </div>
+        `;
+        document.querySelectorAll('.priority-row').forEach(row => {
+            row.addEventListener('mouseenter', () => row.style.background = '#0F2A1F');
+            row.addEventListener('mouseleave', () => row.style.background = '');
+            row.addEventListener('click', () => {
+                const poleId = row.dataset.poleId;
+                const pole = currentPoles.find(p => p.pole_id === poleId);
+                if (pole) {
+                    selectPole(pole);
+                    switchTab('map');
+                    if (leafletMap) leafletMap.setView([pole.lat, pole.lng], 15);
+                } else {
+                    alert('Pole not found in current data. Try refreshing the page.');
+                }
+            });
+        });
+    } catch(e) {
+        container.innerHTML = `<div class="card">Error: ${e.message}</div>`;
+    }
+}
+
+// ── Risk History Tab ──────────────────────────────────────────────
+async function renderHistoryView() {
+    const container = document.getElementById('historyView');
+    if (!selectedPole) {
+        container.innerHTML = '<div class="card">Select a pole to view its risk history.</div>';
+        return;
+    }
+    container.innerHTML = '<div class="card">Loading risk history...</div>';
+    try {
+        const res = await fetch(`${API_BASE}/api/risk_history/${selectedPole.pole_id}`);
+        const data = await res.json();
+        if (!data.history || data.history.length === 0) {
+            container.innerHTML = `<div class="card">No historical data for ${selectedPole.pole_id}. Data will appear after a few days.</div>`;
+            return;
+        }
+        container.innerHTML = `<div class="card"><h4>Risk Score History for ${selectedPole.pole_id}</h4><canvas id="historyChart" width="400" height="200"></canvas></div>`;
+        const ctx = document.getElementById('historyChart').getContext('2d');
+        if (historyChart) historyChart.destroy();
+        historyChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.history.map(h => h.date),
+                datasets: [{ label: 'Risk Score', data: data.history.map(h => h.risk), borderColor: '#5DCAA5', fill: false, tension: 0.1 }]
+            },
+            options: { responsive: true, scales: { y: { min: 0, max: 100 } } }
+        });
+    } catch(e) {
+        container.innerHTML = `<div class="card">Error loading history: ${e.message}</div>`;
+    }
+}
+
+// ── Budget Simulator Tab ──────────────────────────────────────────
+async function renderBudgetSimulator() {
+    const container = document.getElementById('budgetView');
+    container.innerHTML = `
+        <div class="card">
+            <div class="card-title">What-If Budget Simulator</div>
+            <label>Budget ($): <input type="range" id="budgetSlider" min="0" max="500000" step="10000" value="100000"> <span id="budgetVal">$100,000</span></label><br>
+            <button id="runBudgetSim" class="btn-secondary">Optimize</button>
+            <div id="budgetResults"></div>
+        </div>
+    `;
+    const slider = document.getElementById('budgetSlider');
+    const budgetVal = document.getElementById('budgetVal');
+    slider.oninput = () => budgetVal.innerText = `$${parseInt(slider.value).toLocaleString()}`;
+    const runBtn = document.getElementById('runBudgetSim');
+    runBtn.onclick = async () => {
+        const budget = parseInt(slider.value);
+        const resultsDiv = document.getElementById('budgetResults');
+        resultsDiv.innerHTML = '⏳ Calculating...';
+        try {
+            const res = await apiCall('/api/cost/optimize', 'POST', { budget_usd: budget, max_poles: 20 });
+            if (res.selected_poles && res.selected_poles.length) {
+                resultsDiv.innerHTML = `
+                    <div><strong>Budget:</strong> $${res.budget_usd.toLocaleString()} | <strong>Remaining:</strong> $${res.remaining_budget.toLocaleString()}</div>
+                    <div><strong>Total benefit (priority reduction):</strong> ${res.total_benefit.toFixed(1)} pts</div>
+                    <div><strong>Total cost:</strong> $${res.total_cost.toLocaleString()}</div>
+                    <div><strong>Selected poles (${res.selected_poles.length}):</strong></div>
+                    <ul>${res.selected_poles.map(p => `<li>${p.pole_id} – ${p.action} – cost $${p.cost.toLocaleString()} (benefit ${p.benefit})</li>`).join('')}</ul>
+                `;
+            } else {
+                resultsDiv.innerHTML = 'No poles can be repaired/replaced within this budget. Increase budget.';
+            }
+        } catch(e) {
+            resultsDiv.innerHTML = `Error: ${e.message}`;
+        }
+    };
 }
 
 function updateRightPanel() {
@@ -357,16 +536,27 @@ function updateRightPanel() {
     document.getElementById('quickAI')?.addEventListener('click',()=>{ switchTab('ai'); callAI('maintenance'); });
 }
 
+// ── Add CSV Export button to header ──────────────────────────────
+function addCSVButton() {
+    const btn = document.createElement('button');
+    btn.id = 'csvExportBtn';
+    btn.className = 'btn-secondary';
+    btn.innerHTML = '📥 Export CSV';
+    btn.style.marginLeft = '10px';
+    btn.onclick = () => window.open('/api/export/csv', '_blank');
+    document.querySelector('.header-actions').appendChild(btn);
+}
+
 document.addEventListener('DOMContentLoaded', async()=>{
     await loadRegion();
     initMap();
-    setupModalClose();  // attach close event to 3D modal
+    setupModalClose();
+    addCSVButton();
     document.querySelectorAll('.tab-btn').forEach(btn=>btn.addEventListener('click',()=>switchTab(btn.dataset.tab)));
     document.getElementById('refreshBtn').addEventListener('click',()=>loadRegion(true));
     document.getElementById('filterRisk').addEventListener('change',()=>renderPoleList());
     switchTab('map');
 });
-// Add storm marker style
 if (!document.querySelector('#stormAnimationStyle')) {
     const style = document.createElement('style');
     style.id = 'stormAnimationStyle';
