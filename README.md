@@ -30,7 +30,7 @@ GridWatch AI turns reactive utility pole maintenance into a proactive, data-driv
 
 ### 1. Clone and install
 ```bash
-git clone https://github.com/YOUR_USERNAME/gridwatch-ai.git
+[git clone https://github.com/YOUR_USERNAME/gridwatch-ai.git](https://github.com/Manognya86/Hack-Michigan.git)
 cd gridwatch-ai
 pip install -r requirements.txt
 ```
@@ -44,6 +44,7 @@ python train_model.py
 ```bash
 cd backend
 uvicorn main:app --reload --port 8000
+python main.py
 ```
 
 ### 4. Open the dashboard
