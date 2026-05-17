@@ -1,7 +1,8 @@
 """
 main.py – FastAPI backend for GridWatch AI.
 All endpoints: region, predict, storm, CV, AI, analytics, heatmap, PDF, priority,
-historical storms, feedback, savings, cost optimization, fleet assignment, 3D, retraining.
+historical storms, feedback, savings, cost optimization, fleet assignment, 3D,
+explainability, CSV export, risk history, model retraining.
 """
 
 import os
@@ -9,13 +10,15 @@ import asyncio
 import logging
 import base64
 import json
+import csv
 import numpy as np
 import webbrowser
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, date
 from typing import Dict, List, Any, Optional
 from collections import defaultdict
+from io import StringIO
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -71,7 +74,14 @@ def convert_numpy(obj):
     else:
         return obj
 
-_cache: Dict[str, Any] = {"region_data": None, "weather": None, "predictions": [], "last_refresh": None, "historical_storms": []}
+# ── Cache and model ──────────────────────────────────────────────────────────
+_cache: Dict[str, Any] = {
+    "region_data": None,
+    "weather": None,
+    "predictions": [],
+    "last_refresh": None,
+    "historical_storms": [],
+}
 _model_bundle = None
 
 def get_model():
@@ -84,6 +94,7 @@ def get_model():
             logger.warning("Model not found — run train_model.py first. Using rule-based fallback.")
     return _model_bundle
 
+# ── Pydantic models ──────────────────────────────────────────────────────────
 class PoleInput(BaseModel):
     pole_id: str = "CUSTOM-001"
     lat: float = 42.33
@@ -128,6 +139,7 @@ class FleetAssignmentRequest(BaseModel):
     crew_count: int = 3
     max_poles_per_crew: int = 5
 
+# ── Background refresh and helpers ──────────────────────────────────────────
 async def _refresh_region_data(n_poles: int = 150):
     logger.info("Fetching region data...")
     try:
@@ -142,6 +154,8 @@ async def _refresh_region_data(n_poles: int = 150):
         _cache["weather"] = data["weather"]
         _cache["predictions"] = preds
         _cache["last_refresh"] = datetime.utcnow().isoformat()
+        # Update risk history after each refresh
+        update_risk_history(preds)
         logger.info(f"Region data refreshed: {len(poles)} poles")
     except Exception as e:
         logger.error(f"Region refresh failed: {e}")
@@ -208,7 +222,41 @@ def _rule_based_predict(pole: Dict) -> Dict:
 def _get_predictions_map() -> Dict[str, Dict]:
     return {p["pole_id"]: p for p in (_cache.get("predictions") or [])}
 
-# Feedback & savings storage
+# ── Risk history storage (JSON file) ──────────────────────────────────────────
+HISTORY_FILE = "risk_history.json"
+
+def load_risk_history():
+    try:
+        with open(HISTORY_FILE, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+def save_risk_history(history):
+    with open(HISTORY_FILE, "w") as f:
+        json.dump(history, f, indent=2)
+
+def update_risk_history(preds: List[Dict]):
+    """Store current risk scores for all poles with today's date."""
+    if not preds:
+        return
+    today = date.today().isoformat()
+    history = load_risk_history()
+    for pole in preds:
+        pid = pole["pole_id"]
+        if pid not in history:
+            history[pid] = {}
+        history[pid][today] = pole["risk_score"]
+    # Keep only last 90 days (optional cleanup)
+    for pid in history:
+        if len(history[pid]) > 90:
+            # remove oldest entries
+            sorted_dates = sorted(history[pid].keys())
+            for old_date in sorted_dates[:-90]:
+                del history[pid][old_date]
+    save_risk_history(history)
+
+# ── Feedback and savings storage ──────────────────────────────────────────────
 FEEDBACK_FILE = "feedback.json"
 SAVINGS_FILE = "savings.json"
 
@@ -234,7 +282,7 @@ def save_savings(savings):
     with open(SAVINGS_FILE, "w") as f:
         json.dump(savings, f, indent=2)
 
-# Startup tasks
+# ── Startup tasks ────────────────────────────────────────────────────────────
 @app.on_event("startup")
 async def startup():
     get_model()
@@ -247,7 +295,7 @@ async def startup():
             await _refresh_historical_storms()
     asyncio.create_task(periodic())
 
-# Health & status
+# ── Health and status ────────────────────────────────────────────────────────
 @app.get("/health")
 async def health():
     return convert_numpy({"status": "ok", "model_loaded": _model_bundle is not None,
@@ -269,7 +317,7 @@ async def system_status():
         "uptime_seconds": (datetime.utcnow() - datetime.fromisoformat(_cache.get("last_refresh","2024-01-01T00:00:00"))).total_seconds() if _cache.get("last_refresh") else 0,
     })
 
-# Region data
+# ── Region data ──────────────────────────────────────────────────────────────
 @app.get("/api/region")
 async def get_region(background_tasks: BackgroundTasks):
     preds = _cache.get("predictions")
@@ -298,7 +346,7 @@ async def force_refresh():
     await _refresh_historical_storms()
     return {"status": "refreshed", "poles": len(_cache.get("predictions",[]))}
 
-# Single pole predictions
+# ── Single pole predictions ──────────────────────────────────────────────────
 @app.post("/api/predict")
 async def predict_single(pole: PoleInput):
     bundle = get_model()
@@ -316,12 +364,12 @@ async def get_pole(pole_id: str):
         raise HTTPException(404, f"Pole {pole_id} not found")
     return convert_numpy(pmap[pole_id])
 
-# Weather
+# ── Weather ─────────────────────────────────────────────────────────────────
 @app.get("/api/weather")
 async def get_weather(lat: float = 42.33, lng: float = -83.05):
     return convert_numpy(await fetch_weather(lat, lng))
 
-# Heatmap (for frontend)
+# ── Heatmap (for frontend) ──────────────────────────────────────────────────
 @app.get("/api/heatmap")
 async def get_heatmap_data():
     preds = _cache.get("predictions") or []
@@ -329,7 +377,7 @@ async def get_heatmap_data():
               for p in preds if "lat" in p and "lng" in p]
     return convert_numpy({"points": points})
 
-# PDF report
+# ── PDF report ───────────────────────────────────────────────────────────────
 @app.get("/api/report")
 async def generate_pdf_report():
     preds = _cache.get("predictions") or []
@@ -363,7 +411,7 @@ async def generate_pdf_report():
     return Response(buffer.getvalue(), media_type="application/pdf",
                     headers={"Content-Disposition": "attachment; filename=gridwatch_priority_report.pdf"})
 
-# Priority list (for priority tab)
+# ── Priority list (for priority tab) ────────────────────────────────────────
 @app.get("/api/priority")
 async def get_priority_list():
     preds = _cache.get("predictions") or []
@@ -381,7 +429,7 @@ async def get_priority_list():
     } for p in sorted_poles[:20]]
     return convert_numpy({"top_priority_poles": top20, "total_poles": len(preds)})
 
-# Historical storm prediction
+# ── Historical storm prediction ──────────────────────────────────────────────
 @app.get("/api/storm/historical")
 async def get_historical_storm_predictions():
     preds = _cache.get("predictions") or []
@@ -402,7 +450,7 @@ async def get_historical_storm_predictions():
         "recommendation": "High alert" if current_gust > 40 else "Normal"
     })
 
-# Storm simulation
+# ── Storm simulation ────────────────────────────────────────────────────────
 @app.post("/api/storm/simulate")
 async def simulate_storm(req: StormSimRequest):
     preds = _cache.get("predictions") or []
@@ -425,7 +473,7 @@ async def simulate_storm(req: StormSimRequest):
                                      "emergency_cost_usd": sum(p.get("replace_cost_usd",6200)*1.4 for p in failing),
                                      "districts_affected": list({p.get("district") for p in failing})}})
 
-# Computer vision
+# ── Computer vision ─────────────────────────────────────────────────────────
 @app.post("/api/cv/analyze")
 async def analyze_image(file: UploadFile = File(...), pole_id: Optional[str] = None):
     contents = await file.read()
@@ -449,7 +497,7 @@ async def analyze_image(file: UploadFile = File(...), pole_id: Optional[str] = N
                               "risk_delta": round(updated["risk_score"] - pmap.get(pole_id,{}).get("risk_score",updated["risk_score"]),1)})
     return convert_numpy({"pole_id": pole_id, "cv_result": cv_result, "updated_prediction": None})
 
-# watsonx.ai endpoints
+# ── watsonx.ai endpoints ─────────────────────────────────────────────────────
 @app.post("/api/ai/recommend")
 async def ai_recommend(req: WatsonxRequest):
     pmap = _get_predictions_map()
@@ -509,7 +557,7 @@ Provide:
     ai_text = await call_granite(prompt, max_tokens=1000)
     return convert_numpy({"ai_response": ai_text, "poles_analyzed": len(preds)})
 
-# Analytics
+# ── Analytics ────────────────────────────────────────────────────────────────
 @app.get("/api/analytics")
 async def get_analytics():
     preds = _cache.get("predictions") or []
@@ -555,7 +603,7 @@ async def model_info():
         "models": ["XGBRegressor (risk_score)", "XGBClassifier (failure)", "XGBRegressor (storm_prob)"],
     })
 
-# Explainability
+# ── Explainability ──────────────────────────────────────────────────────────
 @app.get("/api/explain/{pole_id}")
 async def get_explanation(pole_id: str):
     pmap = _get_predictions_map()
@@ -572,7 +620,7 @@ async def get_explanation(pole_id: str):
     explanation = generate_explanation(pole, pole)
     return convert_numpy(explanation)
 
-# Feedback and savings
+# ── Feedback and savings ─────────────────────────────────────────────────────
 @app.post("/api/feedback/{pole_id}")
 async def add_feedback(pole_id: str, feedback: str):
     data = load_feedback()
@@ -605,7 +653,44 @@ async def record_action(pole_id: str, action: str):
 async def get_savings():
     return load_savings()
 
-# Cost optimization
+# ── Risk history endpoint ────────────────────────────────────────────────────
+@app.get("/api/risk_history/{pole_id}")
+async def get_risk_history(pole_id: str, days: int = 30):
+    history = load_risk_history()
+    if pole_id not in history:
+        return {"history": []}
+    hist = history[pole_id]
+    sorted_items = sorted(hist.items(), key=lambda x: x[0])
+    # limit to last `days`
+    if len(sorted_items) > days:
+        sorted_items = sorted_items[-days:]
+    return {"pole_id": pole_id, "history": [{"date": d, "risk": r} for d, r in sorted_items]}
+
+# ── CSV Export ───────────────────────────────────────────────────────────────
+@app.get("/api/export/csv")
+async def export_csv():
+    preds = _cache.get("predictions", [])
+    if not preds:
+        raise HTTPException(404, "No data to export")
+    output = StringIO()
+    writer = csv.writer(output)
+    # Write header
+    headers = ["pole_id", "lat", "lng", "district", "age", "material", "tilt_angle", "crack_detected",
+               "rust_detected", "vegetation_risk", "wind_exposure", "flood_zone", "soil_type",
+               "storm_exposure_index", "years_since_inspection", "urban_density", "last_inspection",
+               "height_ft", "road_proximity_ft", "num_transformers", "last_maintenance_year",
+               "aqi", "soil_moisture", "risk_score", "risk_level", "failure_probability",
+               "storm_failure_probability", "remaining_life_years", "replace_cost_usd",
+               "repair_cost_usd", "recommendation", "priority_score"]
+    writer.writerow(headers)
+    for p in preds:
+        row = [p.get(h, "") for h in headers]
+        writer.writerow(row)
+    response = Response(output.getvalue(), media_type="text/csv")
+    response.headers["Content-Disposition"] = "attachment; filename=gridwatch_export.csv"
+    return response
+
+# ── Cost optimization ────────────────────────────────────────────────────────
 @app.post("/api/cost/optimize")
 async def cost_optimization(req: CostOptimizeRequest):
     preds = _cache.get("predictions") or []
@@ -637,7 +722,7 @@ async def cost_optimization(req: CostOptimizeRequest):
         "total_cost": sum(s["cost"] for s in selected)
     })
 
-# Fleet assignment
+# ── Fleet assignment ────────────────────────────────────────────────────────
 @app.post("/api/fleet/assignment")
 async def fleet_assignment(req: FleetAssignmentRequest):
     preds = _cache.get("predictions") or []
@@ -662,7 +747,7 @@ async def fleet_assignment(req: FleetAssignmentRequest):
         "total_poles_assigned": sum(len(v) for v in assignments.values())
     })
 
-# 3D model endpoint
+# ── 3D model endpoint ───────────────────────────────────────────────────────
 @app.get("/api/3d_model/{pole_id}")
 async def get_3d_model(pole_id: str):
     pmap = _get_predictions_map()
@@ -682,7 +767,7 @@ async def get_3d_model(pole_id: str):
         }
     })
 
-# Model retraining (manual and with feedback)
+# ── Model retraining (manual and with feedback) ─────────────────────────────
 @app.post("/api/model/retrain")
 async def retrain_model(background_tasks: BackgroundTasks):
     def _retrain():
@@ -703,7 +788,7 @@ async def retrain_with_feedback(background_tasks: BackgroundTasks):
         df = pd.read_csv("../data/training_poles.csv")
         feedback = load_feedback()
         logger.info(f"Retraining with {len(feedback)} feedback entries")
-        # In a real implementation, merge feedback labels into the dataset
+        # In a real system, merge feedback labels into dataset
         bundle = train_models(df)
         save_bundle(bundle, "../models/risk_model.pkl")
         global _model_bundle
@@ -712,7 +797,7 @@ async def retrain_with_feedback(background_tasks: BackgroundTasks):
     background_tasks.add_task(_retrain_with_feedback)
     return {"status": "retraining with feedback scheduled"}
 
-# Run server with auto-open Chrome
+# ── Run with auto‑open Chrome ───────────────────────────────────────────────
 if __name__ == "__main__":
     import uvicorn
     def open_chrome():
