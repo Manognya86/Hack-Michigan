@@ -132,4 +132,4 @@ All public. No proprietary DTE data required.
 ## Built At
 
 **HackMI 2026** · May 15–17 · TechTown Detroit
-**DTE Energy AI Challenge** — Utility Pole Risk Profiling Track
+**DTE Energy AI Challenge** - Utility Pole Risk Profiling Track
