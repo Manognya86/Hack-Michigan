@@ -134,3 +134,6 @@ All public. No proprietary DTE data required.
 
 **HackMI 2026** · May 15–17 · TechTown Detroit
 **DTE Energy AI Challenge** - Utility Pole Risk Profiling Track
+
+**Kaggle** : https://www.kaggle.com/competitions/hack-michigan/writeups/gridwatch-ai-utility-pole-risk-profiling
+
